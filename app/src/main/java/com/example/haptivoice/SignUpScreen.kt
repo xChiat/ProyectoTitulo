@@ -1,6 +1,7 @@
 package com.example.haptivoice
 
 import androidx.compose.foundation.layout.Arrangement
+import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,6 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
+import com.example.haptivoice.utils.ValidationResult
+import com.example.haptivoice.utils.ValidationUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,6 +82,10 @@ fun SignUpScreen(
                 var selectedDisability by remember { mutableIntStateOf(0) }
                 var selectedVoiceType by remember { mutableIntStateOf(0) }
 
+                var usernameError by remember { mutableStateOf<String?>(null) }
+                var emailError by remember { mutableStateOf<String?>(null) }
+                var passwordError by remember { mutableStateOf<String?>(null) }
+
                 val disabilityOptions = listOf("Auditiva", "Verbal", "Ninguna")
                 val voiceTypeOptions = listOf("Femenina", "Masculino", "Neutral")
 
@@ -89,7 +96,13 @@ fun SignUpScreen(
                     label = { Text("Nombre de usuario") },
                     leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = usernameError != null,
+                    supportingText = {
+                        if (usernameError != null) {
+                            Text(usernameError!!)
+                        }
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -101,7 +114,13 @@ fun SignUpScreen(
                     label = { Text("Correo electrónico") },
                     leadingIcon = { Icon(Icons.Default.MailOutline, contentDescription = null) },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = emailError != null,
+                    supportingText = {
+                        if (emailError != null) {
+                            Text(emailError!!)
+                        }
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -114,7 +133,13 @@ fun SignUpScreen(
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation()
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    isError = passwordError != null,
+                    supportingText = {
+                        if (passwordError != null) {
+                            Text(passwordError!!)
+                        }
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -186,13 +211,51 @@ fun SignUpScreen(
                 // Botón Registrarse
                 Button(
                     onClick = {
-                        onSignUp(
-                            username,
-                            email,
-                            password,
-                            disabilityOptions[selectedDisability],
-                            voiceTypeOptions[selectedVoiceType]
-                        )
+                        // Limpiar errores previos
+                        usernameError = null
+                        emailError = null
+                        passwordError = null
+
+                        // Validar cada campo individualmente
+                        val usernameValidation = ValidationUtils.validateUsername(username)
+                        if (usernameValidation !is ValidationResult.Valid) {
+                            usernameError = when (usernameValidation) {
+                                is ValidationResult.Empty -> usernameValidation.message
+                                is ValidationResult.Invalid -> usernameValidation.message
+                                else -> null
+                            }
+                        }
+
+                        val emailValidation = ValidationUtils.validateEmail(email)
+                        if (emailValidation !is ValidationResult.Valid) {
+                            emailError = when (emailValidation) {
+                                is ValidationResult.Empty -> emailValidation.message
+                                is ValidationResult.Invalid -> emailValidation.message
+                                else -> null
+                            }
+                        }
+
+                        val passwordValidation = ValidationUtils.validatePassword(password)
+                        if (passwordValidation !is ValidationResult.Valid) {
+                            passwordError = when (passwordValidation) {
+                                is ValidationResult.Empty -> passwordValidation.message
+                                is ValidationResult.Invalid -> passwordValidation.message
+                                else -> null
+                            }
+                        }
+
+                        // Si todas las validaciones son válidas, ejecutar el sign up
+                        if (usernameError == null && emailError == null && passwordError == null) {
+                            // Log cat message - se llamo al onSignUp
+                            Log.d("SignUpScreen-Debug", "se llamo al onSignUp")
+                            onSignUp(
+                                username,
+                                email,
+                                password,
+                                disabilityOptions[selectedDisability],
+                                voiceTypeOptions[selectedVoiceType]
+                            )
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)

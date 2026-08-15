@@ -1,16 +1,13 @@
 package com.example.haptivoice.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.haptivoice.model.UserData
-import com.example.haptivoice.utils.ValidationResult
-import com.example.haptivoice.utils.ValidationUtils
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -26,7 +23,7 @@ class SignUpViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
 
     private val _uiState = MutableStateFlow(SignUpUiState())
-    val uiState: StateFlow<SignUpUiState> = _uiState.asStateFlow()
+    val uiState = _uiState
 
     fun signUp(
         username: String,
@@ -35,20 +32,6 @@ class SignUpViewModel : ViewModel() {
         disability: String,
         voiceType: String
     ) {
-        // Validar todos los campos
-        val validationResult = ValidationUtils.validateAllFields(username, email, password)
-        if (validationResult !is ValidationResult.Valid) {
-            val errorMessage = when (validationResult) {
-                is ValidationResult.Empty -> validationResult.message
-                is ValidationResult.Invalid -> validationResult.message
-                else -> "Error de validación"
-            }
-            _uiState.value = SignUpUiState(error = errorMessage)
-            return
-        }
-
-        _uiState.value = SignUpUiState(isLoading = true)
-
         viewModelScope.launch {
             try {
                 // 1. Verificar que el email no exista en Firestore
@@ -60,6 +43,7 @@ class SignUpViewModel : ViewModel() {
                     .not()
 
                 if (userExists) {
+                    Log.d("SignUpViewModel", "El correo electrónico ya está registrado en Firestore")
                     _uiState.value = SignUpUiState(
                         isLoading = false,
                         error = "Ya existe un usuario registrado con este correo"
@@ -91,6 +75,8 @@ class SignUpViewModel : ViewModel() {
 
                 firestore.collection("users").document(userId).set(userData).await()
 
+                Log.d("SignUpViewModel", "Datos del usuario guardados en Firestore")
+
                 _uiState.value = SignUpUiState(success = true)
 
             } catch (e: Exception) {
@@ -105,13 +91,10 @@ class SignUpViewModel : ViewModel() {
                         "Error en la consulta. Por favor, intenta de nuevo"
                     else -> e.message ?: "Error desconocido durante el registro"
                 }
+                Log.d("SignUpViewModel", "Error durante el registro: $errorMessage")
                 _uiState.value = SignUpUiState(isLoading = false, error = errorMessage)
             }
         }
-    }
-
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
     }
 }
 
