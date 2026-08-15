@@ -63,6 +63,8 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
 
+    // Google Play Services Auth (Necesario para el popup de selección de cuenta)
+    implementation("com.google.android.gms:play-services-auth:21.1.1")
 
     // Material Design 3
     implementation("androidx.compose.material3:material3:1.4.0")
