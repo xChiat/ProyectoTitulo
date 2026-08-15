@@ -1,5 +1,6 @@
 package com.example.haptivoice
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,7 +21,9 @@ class SignUpActivity : ComponentActivity() {
                         // TODO: manejar registro con Google
                     },
                     onLoginClick = {
-                        // TODO: navegar a LogInActivity
+                        val intent = Intent(this@SignUpActivity, LogInActivity::class.java)
+                        startActivity(intent)
+                        finish()
                     }
                 )
             }

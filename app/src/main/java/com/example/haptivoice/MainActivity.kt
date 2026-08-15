@@ -1,5 +1,6 @@
 package com.example.haptivoice
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -37,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -133,6 +135,8 @@ fun AuthPromptScreen(
     modifier: Modifier = Modifier,
     onSimulateSession: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -179,7 +183,11 @@ fun AuthPromptScreen(
 
                 // Botón Iniciar Sesión (Filled)
                 Button(
-                    onClick = { /* Acción de iniciar sesión */ },
+                    onClick = {
+                        val intent = Intent(context, LogInActivity::class.java)
+                        context.startActivity(intent)
+                        (context as? MainActivity)?.finish()
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(text = "Iniciar sesión")
@@ -189,7 +197,11 @@ fun AuthPromptScreen(
 
                 // Botón Registrarse (Outlined)
                 OutlinedButton(
-                    onClick = { /* Acción de registro */ },
+                    onClick = {
+                        val intent = Intent(context, SignUpActivity::class.java)
+                        context.startActivity(intent)
+                        (context as? MainActivity)?.finish()
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(text = "Registrarse")

@@ -1,6 +1,7 @@
 package com.example.haptivoice
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -20,7 +21,9 @@ class LogInActivity : ComponentActivity() {
                         // TODO: manejar login con Google
                     },
                     onRegister = {
-                        // TODO: navegar a pantalla de registro
+                        val intent = Intent(this@LogInActivity, SignUpActivity::class.java)
+                        startActivity(intent)
+                        finish()
                     }
                 )
             }
