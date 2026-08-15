@@ -163,6 +163,37 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    // =======================================================================
+    // 4. INICIO DE SESIÓN CON CORREO Y CONTRASEÑA
+    // =======================================================================
+    fun signInWithEmail(email: String, password: String) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            try {
+                // Inicia sesión en Firebase Auth
+                val authResult = auth.signInWithEmailAndPassword(email, password).await()
+                val user = authResult.user
+
+                if (user != null) {
+                    // Si inicia sesión exitosamente por correo, ya es un usuario existente
+                    _authState.value = AuthState.SuccessExistingUser(user.uid)
+                } else {
+                    _authState.value = AuthState.Error("Error al iniciar sesión")
+                }
+            } catch (e: Exception) {
+                // Manejo de errores comunes de inicio de sesión
+                val errorMessage = when {
+                    e.message?.contains("invalid-credential") == true -> "Credenciales incorrectas"
+                    e.message?.contains("user-not-found") == true -> "Usuario no registrado"
+                    e.message?.contains("wrong-password") == true -> "Contraseña incorrecta"
+                    e.message?.contains("network") == true -> "Error de conexión"
+                    else -> e.message ?: "Error desconocido al iniciar sesión"
+                }
+                _authState.value = AuthState.Error(errorMessage)
+            }
+        }
+    }
+
     fun resetState() {
         _authState.value = AuthState.Idle
     }

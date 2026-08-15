@@ -34,6 +34,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
+import com.example.haptivoice.utils.ValidationResult
+import com.example.haptivoice.utils.ValidationUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,6 +89,8 @@ fun LoginScreen(
 
                 var email by remember { mutableStateOf("") }
                 var password by remember { mutableStateOf("") }
+                var emailError by remember { mutableStateOf<String?>(null) }
+                var passwordError by remember { mutableStateOf<String?>(null) }
 
                 OutlinedTextField(
                     value = email,
@@ -95,7 +99,12 @@ fun LoginScreen(
                     leadingIcon = { Icon(Icons.Default.MailOutline, contentDescription = null) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-
+                    isError = emailError != null,
+                    supportingText = {
+                        if (emailError != null) {
+                            Text(emailError!!)
+                        }
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -107,13 +116,47 @@ fun LoginScreen(
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = PasswordVisualTransformation()
+                    visualTransformation = PasswordVisualTransformation(),
+                    isError = passwordError != null,
+                    supportingText = {
+                        if (passwordError != null) {
+                            Text(passwordError!!)
+                        }
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Button(
-                    onClick = { onLogin(email, password) },
+                    onClick = {
+                        // Limpiar errores previos
+                        emailError = null
+                        passwordError = null
+
+                        // Validar cada campo individualmente
+                        val emailValidation = ValidationUtils.validateEmail(email)
+                        if (emailValidation !is ValidationResult.Valid) {
+                            emailError = when (emailValidation) {
+                                is ValidationResult.Empty -> emailValidation.message
+                                is ValidationResult.Invalid -> emailValidation.message
+                                else -> null
+                            }
+                        }
+
+                        val passwordValidation = ValidationUtils.validatePassword(password)
+                        if (passwordValidation !is ValidationResult.Valid) {
+                            passwordError = when (passwordValidation) {
+                                is ValidationResult.Empty -> passwordValidation.message
+                                is ValidationResult.Invalid -> passwordValidation.message
+                                else -> null
+                            }
+                        }
+
+                        // Si todas las validaciones son válidas, ejecutar el login
+                        if (emailError == null && passwordError == null) {
+                            onLogin(email, password)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
