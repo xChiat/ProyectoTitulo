@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "104696983752",
+    "project_id": "haptivoice-3f6a6",
+    "storage_bucket": "haptivoice-3f6a6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:104696983752:android:901bdb7eb700bc50d9f5fd",
+        "android_client_info": {
+          "package_name": "com.example.haptivoice"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCS3n1FHtMSJVfi95s_1OYnrEue58vcqnA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
