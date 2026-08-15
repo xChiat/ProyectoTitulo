@@ -43,14 +43,29 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
+import com.example.haptivoice.utils.SessionManager
+import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val auth = FirebaseAuth.getInstance()
+        val sessionManager = SessionManager(this)
+        val isFirebaseUserLoggedIn = auth.currentUser != null
+        val isSessionWithin90Days = sessionManager.isSessionValid()
+
+        if (isFirebaseUserLoggedIn && !isSessionWithin90Days) {
+            auth.signOut()
+            sessionManager.clearSession()
+        }
+
+        val initialSessionState = isFirebaseUserLoggedIn && isSessionWithin90Days
+
         setContent {
             HaptivoiceTheme {
-                var hasOldSession by remember { mutableStateOf(false) }
+                var hasOldSession by remember { mutableStateOf(initialSessionState) }
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     if (hasOldSession) {
@@ -60,7 +75,10 @@ class MainActivity : ComponentActivity() {
                     } else {
                         AuthPromptScreen(
                             modifier = Modifier.padding(innerPadding),
-                            onSimulateSession = { hasOldSession = true },
+                            onSimulateSession = {
+                                // Esto ahora solo sirve para el botón de la UI que no tiene lógica aún
+                                hasOldSession = true
+                            },
                         )
                     }
                 }

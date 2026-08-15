@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
 import com.example.haptivoice.model.AuthState
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
+import com.example.haptivoice.utils.SessionManager
 import com.example.haptivoice.viewmodel.AuthViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -48,6 +49,11 @@ class LogInActivity : ComponentActivity() {
                 when (val state = authState) {
                     is AuthState.SuccessExistingUser -> {
                         LaunchedEffect(Unit) {
+                            val sessionManager =
+                                SessionManager(this@LogInActivity)
+
+                            sessionManager.saveSession()
+
                             val intent = Intent(this@LogInActivity, MainActivity::class.java)
                             startActivity(intent)
                             finish()
@@ -76,7 +82,6 @@ class LogInActivity : ComponentActivity() {
                         RenderLoginScreen(authViewModel, googleSignInLauncher)
                     }
                     else -> {
-                        // Idle o Loading -> Mostramos el formulario de Login
                         RenderLoginScreen(authViewModel, googleSignInLauncher)
                     }
                 }
@@ -111,7 +116,6 @@ class LogInActivity : ComponentActivity() {
                 }
             },
             onRegister = {
-                // Navegar a la pantalla de registro
                 val intent = Intent(this@LogInActivity, SignUpActivity::class.java)
                 startActivity(intent)
                 finish()
