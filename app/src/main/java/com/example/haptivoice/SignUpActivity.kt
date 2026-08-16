@@ -14,6 +14,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
 import com.example.haptivoice.model.AuthState
+import com.example.haptivoice.ui.screens.DatosAdicionalesScreen
+import com.example.haptivoice.ui.screens.SignUpScreen
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
 import com.example.haptivoice.utils.SessionManager
 import com.example.haptivoice.viewmodel.AuthViewModel

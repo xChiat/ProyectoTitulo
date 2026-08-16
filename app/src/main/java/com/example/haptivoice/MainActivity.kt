@@ -45,6 +45,9 @@ import androidx.compose.ui.unit.dp
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
 import com.example.haptivoice.utils.SessionManager
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.foundation.layout.WindowInsets
+import com.example.haptivoice.ui.screens.AjustesScreen
+import com.example.haptivoice.ui.screens.DiccionarioScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,7 +94,7 @@ class MainActivity : ComponentActivity() {
 fun HomeScreen(modifier: Modifier = Modifier) {
     var isPaired by remember { mutableStateOf(false) }
     var selectedItem by remember { mutableIntStateOf(0) }
-    
+
     val navItems = listOf(
         Triple("Home", Icons.Default.Home, 0),
         Triple("Diccionario", Icons.AutoMirrored.Filled.MenuBook, 1),
@@ -101,7 +104,9 @@ fun HomeScreen(modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                windowInsets = WindowInsets(0.dp)
+            ) {
                 navItems.forEach { (label, icon, index) ->
                     NavigationBarItem(
                         selected = selectedItem == index,
@@ -113,36 +118,45 @@ fun HomeScreen(modifier: Modifier = Modifier) {
             }
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            verticalArrangement = Arrangement.Bottom,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            if (!isPaired) {
-                Button(
-                    onClick = { isPaired = true },
+        when (selectedItem) {
+            0 -> {
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 32.dp)
-                        .padding(bottom = 16.dp)
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    verticalArrangement = Arrangement.Bottom,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(text = "Vincular Guantes")
+                    if (!isPaired) {
+                        Button(
+                            onClick = { isPaired = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 32.dp)
+                                .padding(bottom = 16.dp)
+                        ) {
+                            Text(text = "Vincular Guantes")
+                        }
+                    } else {
+                        Text(
+                            text = "Guantes vinculados",
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "TODO: Implementar contenido principal de la aplicación aquí.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-            } else {
-                // TODO: Contenido cuando los guantes están vinculados
-                Text(
-                    text = "Guantes vinculados",
-                    style = MaterialTheme.typography.headlineSmall
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "TODO: Implementar contenido principal de la aplicación aquí.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            }
+            1 -> {
+                DiccionarioScreen(modifier = Modifier.padding(innerPadding))
+            }
+            2 -> {
+                AjustesScreen(modifier = Modifier.padding(innerPadding))
             }
         }
     }

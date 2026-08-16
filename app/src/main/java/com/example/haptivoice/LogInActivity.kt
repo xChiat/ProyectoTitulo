@@ -14,6 +14,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
 import com.example.haptivoice.model.AuthState
+import com.example.haptivoice.ui.screens.DatosAdicionalesScreen
+import com.example.haptivoice.ui.screens.LoginScreen
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
 import com.example.haptivoice.utils.SessionManager
 import com.example.haptivoice.viewmodel.AuthViewModel
@@ -101,7 +103,8 @@ class LogInActivity : ComponentActivity() {
                 authViewModel.signInWithEmail(email, password)
             },
             onGoogleSignIn = {
-                val webClientId = "104696983752-f7ra57005ar73oh0sf2nfpi8ved84dt4.apps.googleusercontent.com"
+                val webClientId =
+                    "104696983752-f7ra57005ar73oh0sf2nfpi8ved84dt4.apps.googleusercontent.com"
 
                 val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                     .requestIdToken(webClientId)

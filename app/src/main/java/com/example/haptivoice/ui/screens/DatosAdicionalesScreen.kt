@@ -1,4 +1,4 @@
-package com.example.haptivoice
+package com.example.haptivoice.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
