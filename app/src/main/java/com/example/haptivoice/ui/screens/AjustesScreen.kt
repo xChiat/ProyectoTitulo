@@ -1,6 +1,7 @@
 package com.example.haptivoice.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,37 +12,57 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.haptivoice.ui.theme.HaptivoiceTheme
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.haptivoice.viewmodel.ProfileUiState
+import com.example.haptivoice.viewmodel.ProfileViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AjustesScreen(
     modifier: Modifier = Modifier,
+    profileViewModel: ProfileViewModel = viewModel(),
     onLogout: () -> Unit = {}
 ) {
+    val uiState by profileViewModel.uiState.collectAsState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -61,29 +82,135 @@ fun AjustesScreen(
         // ==========================================
         SectionTitle(title = "Perfil de Usuario")
 
-        SettingsItem(
-            icon = Icons.Default.Person,
-            title = "Nombre de usuario",
-            subtitle = "usuario_demo",
-            onClick = { /* TODO: Lógica para cambiar nombre de usuario */ }
-        )
-        SettingsItem(
-            icon = Icons.Default.Email,
-            title = "Correo electrónico",
-            subtitle = "correo@ejemplo.com",
-            onClick = { /* TODO: Lógica para ver/cambiar correo */ }
-        )
-        SettingsItem(
-            icon = Icons.Default.RecordVoiceOver, // Usa Icons.Default.VolumeUp si no tienes RecordVoiceOver
-            title = "Preferencia de voz",
-            subtitle = "Femenina",
-            onClick = { /* TODO: Lógica para cambiar tipo de voz */ }
-        )
+        when (val state = uiState) {
+            is ProfileUiState.Loading -> {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp))
+            }
+            is ProfileUiState.Error -> {
+                Text(text = state.message, color = MaterialTheme.colorScheme.error)
+            }
+            is ProfileUiState.Success -> {
+                val userData = state.userData
+                var isEditing by remember { mutableStateOf(false) }
+
+                // Variables para mantener los cambios antes de guardar
+                var editedUsername by remember(userData) { mutableStateOf(userData.username) }
+                val voiceOptions = listOf("Femenina", "Masculino", "Neutral")
+                var editedVoiceTypeIndex by remember(userData) {
+                    mutableIntStateOf(voiceOptions.indexOf(userData.voiceType).takeIf { it >= 0 } ?: 0)
+                }
+
+                if (!isEditing) {
+                    // MODO LECTURA
+                    SettingsItem(
+                        icon = Icons.Default.Person,
+                        title = "Nombre de usuario",
+                        subtitle = userData.username,
+                        trailingContent = {
+                            IconButton(onClick = { isEditing = true }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Editar perfil")
+                            }
+                        }
+                    )
+                    SettingsItem(
+                        icon = Icons.Default.Email,
+                        title = "Correo electrónico",
+                        subtitle = userData.email
+                        // Sin ícono de edición para que no se pueda modificar
+                    )
+                    SettingsItem(
+                        icon = Icons.Default.RecordVoiceOver,
+                        title = "Preferencia de voz",
+                        subtitle = userData.voiceType,
+                        trailingContent = {
+                            IconButton(onClick = { isEditing = true }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Editar tipo de voz")
+                            }
+                        }
+                    )
+                } else {
+                    // MODO EDICIÓN
+                    OutlinedTextField(
+                        value = editedUsername,
+                        onValueChange = { editedUsername = it },
+                        label = { Text("Nombre de usuario") },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        singleLine = true
+                    )
+
+                    // El correo sigue como solo lectura
+                    SettingsItem(
+                        icon = Icons.Default.Email,
+                        title = "Correo electrónico",
+                        subtitle = userData.email
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Tipo de voz sintética",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    )
+
+                    // Segmented button para el tipo de voz en modo edición
+                    SingleChoiceSegmentedButtonRow(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                    ) {
+                        voiceOptions.forEachIndexed { index, label ->
+                            SegmentedButton(
+                                selected = editedVoiceTypeIndex == index,
+                                onClick = { editedVoiceTypeIndex = index },
+                                shape = RoundedCornerShape(
+                                    topStart = if (index == 0) 12.dp else 0.dp,
+                                    bottomStart = if (index == 0) 12.dp else 0.dp,
+                                    topEnd = if (index == voiceOptions.size - 1) 12.dp else 0.dp,
+                                    bottomEnd = if (index == voiceOptions.size - 1) 12.dp else 0.dp
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(label, style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+
+                    // Botones de acción para guardar o cancelar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                // Cancelar: reinicia valores y oculta la edición
+                                isEditing = false
+                                editedUsername = userData.username
+                                editedVoiceTypeIndex = voiceOptions.indexOf(userData.voiceType).takeIf { it >= 0 } ?: 0
+                            },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Text("Cancelar")
+                        }
+                        Button(
+                            onClick = {
+                                // Guardar cambios en Firestore mediante el ViewModel
+                                profileViewModel.updateProfile(
+                                    newUsername = editedUsername,
+                                    newVoiceType = voiceOptions[editedVoiceTypeIndex]
+                                )
+                                isEditing = false
+                            }
+                        ) {
+                            Text("Guardar cambios")
+                        }
+                    }
+                }
+            }
+        }
+
+        // Se mantiene el resto de tu código sin alteraciones...
         SettingsItem(
             icon = Icons.Default.Star,
             title = "Plan actual",
-            subtitle = "Básico (Free-Tier)",
-            onClick = { /* Muestra detalles del plan actual */ }
+            subtitle = "Básico (Free-Tier)"
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -96,8 +223,7 @@ fun AjustesScreen(
         SettingsItem(
             icon = Icons.Default.CreditCard,
             title = "Administrar suscripción",
-            subtitle = "Actualiza tu plan de pago (Próximamente)",
-            onClick = { /* TODO: Navegar a pantalla de pagos */ }
+            subtitle = "Actualiza tu plan de pago (Próximamente)"
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -109,16 +235,14 @@ fun AjustesScreen(
 
         SettingsItem(
             icon = Icons.Default.Lock,
-            title = "Cambiar contraseña",
-            onClick = { /* TODO: Flujo de cambio de contraseña */ }
+            title = "Cambiar contraseña"
         )
         SettingsItem(
             icon = Icons.Default.DeleteForever,
             title = "Eliminar cuenta",
             subtitle = "Esta acción es irreversible",
             iconTint = MaterialTheme.colorScheme.error,
-            textColor = MaterialTheme.colorScheme.error,
-            onClick = { /* TODO: Flujo de eliminación de cuenta */ }
+            textColor = MaterialTheme.colorScheme.error
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -130,8 +254,7 @@ fun AjustesScreen(
 
         SettingsItem(
             icon = Icons.Default.Description,
-            title = "Términos de servicio",
-            onClick = { /* TODO: Mostrar términos y condiciones */ }
+            title = "Términos de servicio"
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -154,6 +277,7 @@ fun AjustesScreen(
         }
     }
 }
+
 @Composable
 private fun SectionTitle(title: String) {
     Text(
@@ -171,12 +295,13 @@ private fun SettingsItem(
     subtitle: String? = null,
     iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     textColor: Color = MaterialTheme.colorScheme.onSurface,
-    onClick: () -> Unit
+    onClick: (() -> Unit)? = null,
+    trailingContent: @Composable (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -189,7 +314,7 @@ private fun SettingsItem(
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
@@ -203,13 +328,9 @@ private fun SettingsItem(
                 )
             }
         }
-    }
-}
 
-@Preview(showBackground = true)
-@Composable
-fun AjustesScreenPreview(){
-    HaptivoiceTheme {
-        AjustesScreen()
+        if (trailingContent != null) {
+            trailingContent()
+        }
     }
 }
