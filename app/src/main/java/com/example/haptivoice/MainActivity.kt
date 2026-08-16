@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
 import com.example.haptivoice.utils.SessionManager
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.foundation.layout.WindowInsets
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,7 +92,7 @@ class MainActivity : ComponentActivity() {
 fun HomeScreen(modifier: Modifier = Modifier) {
     var isPaired by remember { mutableStateOf(false) }
     var selectedItem by remember { mutableIntStateOf(0) }
-    
+
     val navItems = listOf(
         Triple("Home", Icons.Default.Home, 0),
         Triple("Diccionario", Icons.AutoMirrored.Filled.MenuBook, 1),
@@ -101,7 +102,9 @@ fun HomeScreen(modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                windowInsets = WindowInsets(0.dp)
+            ) {
                 navItems.forEach { (label, icon, index) ->
                     NavigationBarItem(
                         selected = selectedItem == index,
@@ -131,7 +134,6 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                     Text(text = "Vincular Guantes")
                 }
             } else {
-                // TODO: Contenido cuando los guantes están vinculados
                 Text(
                     text = "Guantes vinculados",
                     style = MaterialTheme.typography.headlineSmall
