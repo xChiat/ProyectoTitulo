@@ -74,12 +74,16 @@ class MainActivity : ComponentActivity() {
                     if (hasOldSession) {
                         HomeScreen(
                             modifier = Modifier.padding(innerPadding),
+                            onLogout = {
+                                auth.signOut()
+                                sessionManager.clearSession()
+                                hasOldSession = false
+                            }
                         )
                     } else {
                         AuthPromptScreen(
                             modifier = Modifier.padding(innerPadding),
                             onSimulateSession = {
-                                // Esto ahora solo sirve para el botón de la UI que no tiene lógica aún
                                 hasOldSession = true
                             },
                         )
@@ -91,7 +95,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
+fun HomeScreen(
+    modifier: Modifier = Modifier,
+    onLogout: () -> Unit = {}
+) {
     var isPaired by remember { mutableStateOf(false) }
     var selectedItem by remember { mutableIntStateOf(0) }
 
@@ -156,7 +163,10 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 DiccionarioScreen(modifier = Modifier.padding(innerPadding))
             }
             2 -> {
-                AjustesScreen(modifier = Modifier.padding(innerPadding))
+                AjustesScreen(
+                    modifier = Modifier.padding(innerPadding),
+                    onLogout = onLogout
+                )
             }
         }
     }
@@ -213,7 +223,6 @@ fun AuthPromptScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Botón Iniciar Sesión (Filled)
                 Button(
                     onClick = {
                         val intent = Intent(context, LogInActivity::class.java)
@@ -227,7 +236,6 @@ fun AuthPromptScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Botón Registrarse (Outlined)
                 OutlinedButton(
                     onClick = {
                         val intent = Intent(context, SignUpActivity::class.java)

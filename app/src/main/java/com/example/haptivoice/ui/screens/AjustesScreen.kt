@@ -38,7 +38,10 @@ import androidx.compose.ui.unit.dp
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
 
 @Composable
-fun AjustesScreen(modifier: Modifier = Modifier) {
+fun AjustesScreen(
+    modifier: Modifier = Modifier,
+    onLogout: () -> Unit = {} // <-- 1. Añadimos la función callback
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -137,7 +140,7 @@ fun AjustesScreen(modifier: Modifier = Modifier) {
         // BOTÓN: CERRAR SESIÓN
         // ==========================================
         OutlinedButton(
-            onClick = { /* TODO: Lógica para desloguear */ },
+            onClick = onLogout,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 32.dp)
@@ -151,11 +154,6 @@ fun AjustesScreen(modifier: Modifier = Modifier) {
         }
     }
 }
-
-// ========================================================
-// COMPONENTES AUXILIARES PARA REUTILIZAR CÓDIGO
-// ========================================================
-
 @Composable
 private fun SectionTitle(title: String) {
     Text(
