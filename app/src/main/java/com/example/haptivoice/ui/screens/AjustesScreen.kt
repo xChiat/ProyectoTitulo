@@ -40,7 +40,7 @@ import com.example.haptivoice.ui.theme.HaptivoiceTheme
 @Composable
 fun AjustesScreen(
     modifier: Modifier = Modifier,
-    onLogout: () -> Unit = {} // <-- 1. Añadimos la función callback
+    onLogout: () -> Unit = {}
 ) {
     Column(
         modifier = modifier
