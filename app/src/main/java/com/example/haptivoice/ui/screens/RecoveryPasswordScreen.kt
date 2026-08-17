@@ -1,50 +1,29 @@
 package com.example.haptivoice.ui.screens
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.haptivoice.ui.theme.HaptivoiceTheme
 
 @Composable
 fun RecoveryPasswordScreen(
     modifier: Modifier = Modifier,
-    onNavigateToLogin: () -> Unit = {},
-    onPasswordResetComplete: () -> Unit = {}
+    currentStep: Int,
+    isLoading: Boolean,
+    onSendEmail: (String) -> Unit,
+    onVerifyCode: (String) -> Unit,
+    onResetPassword: (String) -> Unit,
+    onNavigateToLogin: () -> Unit
 ) {
-    // Manejador de estado para cambiar entre las 3 etapas del boceto (1, 2 o 3)
-    var currentStep by remember { mutableIntStateOf(1) }
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -72,15 +51,18 @@ fun RecoveryPasswordScreen(
 
                 when (currentStep) {
                     1 -> StepOneRequestEmail(
-                        onContinue = { currentStep = 2 },
+                        isLoading = isLoading,
+                        onContinue = onSendEmail,
                         onNavigateToLogin = onNavigateToLogin
                     )
                     2 -> StepTwoVerifyCode(
-                        onVerify = { currentStep = 3 },
+                        isLoading = isLoading,
+                        onVerify = onVerifyCode,
                         onNavigateToLogin = onNavigateToLogin
                     )
                     3 -> StepThreeNewPassword(
-                        onSave = { onPasswordResetComplete() }
+                        isLoading = isLoading,
+                        onSave = onResetPassword
                     )
                 }
             }
@@ -88,12 +70,10 @@ fun RecoveryPasswordScreen(
     }
 }
 
-// ==========================================
-// ETAPA 1: SOLICITAR CORREO
-// ==========================================
 @Composable
 private fun StepOneRequestEmail(
-    onContinue: () -> Unit,
+    isLoading: Boolean,
+    onContinue: (String) -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
@@ -113,6 +93,7 @@ private fun StepOneRequestEmail(
             onValueChange = { email = it },
             label = { Text("Correo") },
             singleLine = true,
+            enabled = !isLoading,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth()
         )
@@ -120,35 +101,33 @@ private fun StepOneRequestEmail(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = onContinue,
+            onClick = { onContinue(email) },
+            enabled = email.isNotBlank() && !isLoading,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Continuar")
+            if (isLoading) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+            else Text("Continuar")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
         Spacer(modifier = Modifier.height(8.dp))
 
-        TextButton(onClick = onNavigateToLogin) {
+        TextButton(onClick = onNavigateToLogin, enabled = !isLoading) {
             Text("Iniciar sesión o registrarse")
         }
     }
 }
 
-// ==========================================
-// ETAPA 2: INGRESAR CÓDIGO
-// ==========================================
 @Composable
 private fun StepTwoVerifyCode(
-    onVerify: () -> Unit,
+    isLoading: Boolean,
+    onVerify: (String) -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
     var code by remember { mutableStateOf("") }
-    val codeLength = 5 // Según el boceto hay 5 recuadros
+    val codeLength = 5
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
@@ -160,14 +139,10 @@ private fun StepTwoVerifyCode(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Componente personalizado para los 5 recuadros del boceto
         BasicTextField(
             value = code,
-            onValueChange = {
-                if (it.length <= codeLength) {
-                    code = it
-                }
-            },
+            onValueChange = { if (it.length <= codeLength) code = it },
+            enabled = !isLoading,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             decorationBox = {
                 Row(
@@ -179,7 +154,6 @@ private fun StepTwoVerifyCode(
                             index >= code.length -> ""
                             else -> code[index].toString()
                         }
-
                         Box(
                             modifier = Modifier
                                 .width(50.dp)
@@ -191,10 +165,7 @@ private fun StepTwoVerifyCode(
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = char,
-                                style = MaterialTheme.typography.headlineSmall
-                            )
+                            Text(text = char, style = MaterialTheme.typography.headlineSmall)
                         }
                     }
                 }
@@ -204,34 +175,33 @@ private fun StepTwoVerifyCode(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = onVerify,
+            onClick = { onVerify(code) },
+            enabled = code.length == codeLength && !isLoading,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Restablecer contraseña")
+            if (isLoading) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+            else Text("Restablecer contraseña")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
         Spacer(modifier = Modifier.height(8.dp))
 
-        TextButton(onClick = onNavigateToLogin) {
+        TextButton(onClick = onNavigateToLogin, enabled = !isLoading) {
             Text("Iniciar sesión o registrarse")
         }
     }
 }
 
-// ==========================================
-// ETAPA 3: NUEVA CONTRASEÑA
-// ==========================================
 @Composable
 private fun StepThreeNewPassword(
-    onSave: () -> Unit
+    isLoading: Boolean,
+    onSave: (String) -> Unit
 ) {
     var newPassword by remember { mutableStateOf("") }
     var repeatPassword by remember { mutableStateOf("") }
+    var errorText by remember { mutableStateOf<String?>(null) }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
@@ -245,9 +215,13 @@ private fun StepThreeNewPassword(
 
         OutlinedTextField(
             value = newPassword,
-            onValueChange = { newPassword = it },
+            onValueChange = {
+                newPassword = it
+                errorText = null
+            },
             label = { Text("Nueva contraseña") },
             singleLine = true,
+            enabled = !isLoading,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth()
@@ -257,30 +231,42 @@ private fun StepThreeNewPassword(
 
         OutlinedTextField(
             value = repeatPassword,
-            onValueChange = { repeatPassword = it },
+            onValueChange = {
+                repeatPassword = it
+                errorText = null
+            },
             label = { Text("Repita la Contraseña") },
             singleLine = true,
+            enabled = !isLoading,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            isError = errorText != null,
+            supportingText = {
+                if (errorText != null) {
+                    Text(text = errorText!!, color = MaterialTheme.colorScheme.error)
+                }
+            }
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = onSave,
+            onClick = {
+                if (newPassword == repeatPassword && newPassword.length >= 8) {
+                    onSave(newPassword)
+                } else if (newPassword.length < 8) {
+                    errorText = "La contraseña debe tener al menos 8 caracteres"
+                } else {
+                    errorText = "Las contraseñas no coinciden"
+                }
+            },
+            enabled = newPassword.isNotBlank() && repeatPassword.isNotBlank() && !isLoading,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Guardar nueva contraseña")
+            if (isLoading) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+            else Text("Guardar nueva contraseña")
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun RecoveryPasswordScreenPreview() {
-    HaptivoiceTheme {
-        RecoveryPasswordScreen()
     }
 }

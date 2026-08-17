@@ -1,5 +1,6 @@
 package com.example.haptivoice.ui.screens
 
+import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -48,8 +49,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.haptivoice.RecoveryActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.haptivoice.viewmodel.ProfileUiState
 import com.example.haptivoice.viewmodel.ProfileViewModel
@@ -62,6 +65,8 @@ fun AjustesScreen(
     onLogout: () -> Unit = {}
 ) {
     val uiState by profileViewModel.uiState.collectAsState()
+
+    val context = LocalContext.current
 
     Column(
         modifier = modifier
@@ -93,7 +98,6 @@ fun AjustesScreen(
                 val userData = state.userData
                 var isEditing by remember { mutableStateOf(false) }
 
-                // Variables para mantener los cambios antes de guardar
                 var editedUsername by remember(userData) { mutableStateOf(userData.username) }
                 val voiceOptions = listOf("Femenina", "Masculino", "Neutral")
                 var editedVoiceTypeIndex by remember(userData) {
@@ -101,7 +105,6 @@ fun AjustesScreen(
                 }
 
                 if (!isEditing) {
-                    // MODO LECTURA
                     SettingsItem(
                         icon = Icons.Default.Person,
                         title = "Nombre de usuario",
@@ -116,7 +119,6 @@ fun AjustesScreen(
                         icon = Icons.Default.Email,
                         title = "Correo electrónico",
                         subtitle = userData.email
-                        // Sin ícono de edición para que no se pueda modificar
                     )
                     SettingsItem(
                         icon = Icons.Default.RecordVoiceOver,
@@ -129,7 +131,6 @@ fun AjustesScreen(
                         }
                     )
                 } else {
-                    // MODO EDICIÓN
                     OutlinedTextField(
                         value = editedUsername,
                         onValueChange = { editedUsername = it },
@@ -138,7 +139,6 @@ fun AjustesScreen(
                         singleLine = true
                     )
 
-                    // El correo sigue como solo lectura
                     SettingsItem(
                         icon = Icons.Default.Email,
                         title = "Correo electrónico",
@@ -152,7 +152,6 @@ fun AjustesScreen(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                     )
 
-                    // Segmented button para el tipo de voz en modo edición
                     SingleChoiceSegmentedButtonRow(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                     ) {
@@ -173,14 +172,12 @@ fun AjustesScreen(
                         }
                     }
 
-                    // Botones de acción para guardar o cancelar
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
                         OutlinedButton(
                             onClick = {
-                                // Cancelar: reinicia valores y oculta la edición
                                 isEditing = false
                                 editedUsername = userData.username
                                 editedVoiceTypeIndex = voiceOptions.indexOf(userData.voiceType).takeIf { it >= 0 } ?: 0
@@ -191,7 +188,6 @@ fun AjustesScreen(
                         }
                         Button(
                             onClick = {
-                                // Guardar cambios en Firestore mediante el ViewModel
                                 profileViewModel.updateProfile(
                                     newUsername = editedUsername,
                                     newVoiceType = voiceOptions[editedVoiceTypeIndex]
@@ -206,7 +202,6 @@ fun AjustesScreen(
             }
         }
 
-        // Se mantiene el resto de tu código sin alteraciones...
         SettingsItem(
             icon = Icons.Default.Star,
             title = "Plan actual",
@@ -232,11 +227,15 @@ fun AjustesScreen(
         // SECCIÓN: SEGURIDAD
         // ==========================================
         SectionTitle(title = "Seguridad")
-
         SettingsItem(
             icon = Icons.Default.Lock,
-            title = "Cambiar contraseña"
+            title = "Cambiar contraseña",
+            onClick = {
+                val intent = Intent(context, RecoveryActivity::class.java)
+                context.startActivity(intent)
+            }
         )
+
         SettingsItem(
             icon = Icons.Default.DeleteForever,
             title = "Eliminar cuenta",

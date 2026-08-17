@@ -62,3 +62,48 @@ exports.sendRecoveryOtp = onCall(async (request) => {
         throw new HttpsError('internal', 'No se pudo enviar el correo de recuperación.');
     }
 });
+
+exports.resetPasswordWithOtp = onCall(async (request) => {
+    // Recibimos los datos desde Android
+    const email = request.data.email;
+    const otp = request.data.otp;
+    const newPassword = request.data.newPassword;
+
+    if (!email || !otp || !newPassword) {
+        throw new HttpsError('invalid-argument', 'Faltan datos para restablecer la contraseña.');
+    }
+
+    // 1. Buscamos el código en Firestore
+    const resetDocRef = admin.firestore().collection('password_resets').doc(email);
+    const doc = await resetDocRef.get();
+
+    if (!doc.exists) {
+        throw new HttpsError('not-found', 'No se solicitó ningún cambio para este correo.');
+    }
+
+    const data = doc.data();
+
+    // 2. Validar que el código sea correcto
+    if (data.otp !== otp) {
+        throw new HttpsError('permission-denied', 'El código ingresado es incorrecto.');
+    }
+
+    // 3. Validar que no haya expirado (15 minutos)
+    if (data.expiresAt.toDate() < new Date()) {
+        throw new HttpsError('deadline-exceeded', 'El código ha expirado. Solicita uno nuevo.');
+    }
+
+    try {
+        // 4. Cambiar la contraseña usando los privilegios de Admin
+        const userRecord = await admin.auth().getUserByEmail(email);
+        await admin.auth().updateUser(userRecord.uid, { password: newPassword });
+
+        // 5. Borramos el código de Firestore por seguridad para que no se re-utilice
+        await resetDocRef.delete();
+
+        return { success: true, message: 'Contraseña actualizada correctamente.' };
+    } catch (error) {
+        logger.error('Error al cambiar contraseña', error);
+        throw new HttpsError('internal', 'Ocurrió un error al intentar cambiar la contraseña.');
+    }
+});

@@ -43,7 +43,8 @@ fun LoginScreen(
     modifier: Modifier = Modifier,
     onLogin: (email: String, password: String) -> Unit = { _, _ -> },
     onGoogleSignIn: () -> Unit = {},
-    onRegister: () -> Unit = {}
+    onRegister: () -> Unit = {},
+    onPasswordRecovery: () -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -52,16 +53,6 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // App icon / placeholder
-        Icon(
-            imageVector = Icons.Default.AccountCircle,
-            contentDescription = "Logo",
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
         OutlinedCard(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(28.dp)
@@ -125,7 +116,11 @@ fun LoginScreen(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                TextButton(onClick = onPasswordRecovery) {
+                    Text(text = "¿Olvidaste tu contraseña?")
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Button(
                     onClick = {

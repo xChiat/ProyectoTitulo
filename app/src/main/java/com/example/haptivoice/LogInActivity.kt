@@ -122,6 +122,11 @@ class LogInActivity : ComponentActivity() {
                 val intent = Intent(this@LogInActivity, SignUpActivity::class.java)
                 startActivity(intent)
                 finish()
+            },
+            onPasswordRecovery = {
+                val intent = Intent(this@LogInActivity, RecoveryActivity::class.java)
+                startActivity(intent)
+                finish()
             }
         )
     }
