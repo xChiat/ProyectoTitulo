@@ -17,8 +17,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
 import com.example.haptivoice.ui.screens.RecoveryPasswordScreen
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
+import com.example.haptivoice.utils.SessionManager
 import com.example.haptivoice.viewmodel.RecoveryState
 import com.example.haptivoice.viewmodel.RecoveryViewModel
+import com.google.firebase.auth.FirebaseAuth
 
 class RecoveryActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,6 +28,8 @@ class RecoveryActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val recoveryViewModel = ViewModelProvider(this)[RecoveryViewModel::class.java]
+        val auth = FirebaseAuth.getInstance()
+        val sessionManager = SessionManager(this)
 
         setContent {
             HaptivoiceTheme {
@@ -41,6 +45,8 @@ class RecoveryActivity : ComponentActivity() {
                         }
                         is RecoveryState.Success -> {
                             Toast.makeText(context, "Contraseña cambiada exitosamente", Toast.LENGTH_LONG).show()
+                            auth.signOut()
+                            sessionManager.clearSession()
                             val intent = Intent(this@RecoveryActivity, LogInActivity::class.java)
                             startActivity(intent)
                             finish()

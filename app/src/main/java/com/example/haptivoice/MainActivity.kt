@@ -2,16 +2,20 @@ package com.example.haptivoice
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,24 +34,32 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModelProvider
+import com.example.haptivoice.model.AuthState
+import com.example.haptivoice.ui.screens.AjustesScreen
+import com.example.haptivoice.ui.screens.DatosAdicionalesScreen
+import com.example.haptivoice.ui.screens.DiccionarioScreen
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
 import com.example.haptivoice.utils.SessionManager
+import com.example.haptivoice.viewmodel.AuthViewModel
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
-import androidx.compose.foundation.layout.WindowInsets
-import com.example.haptivoice.ui.screens.AjustesScreen
-import com.example.haptivoice.ui.screens.DiccionarioScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,6 +68,9 @@ class MainActivity : ComponentActivity() {
 
         val auth = FirebaseAuth.getInstance()
         val sessionManager = SessionManager(this)
+
+        val authViewModel = ViewModelProvider(this)[AuthViewModel::class.java]
+
         val isFirebaseUserLoggedIn = auth.currentUser != null
         val isSessionWithin90Days = sessionManager.isSessionValid()
 
@@ -68,25 +83,85 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             HaptivoiceTheme {
+                val context = LocalContext.current
+                val authState by authViewModel.authState.collectAsState()
                 var hasOldSession by remember { mutableStateOf(initialSessionState) }
 
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    if (hasOldSession) {
-                        HomeScreen(
-                            modifier = Modifier.padding(innerPadding),
-                            onLogout = {
-                                auth.signOut()
-                                sessionManager.clearSession()
-                                hasOldSession = false
-                            }
-                        )
-                    } else {
-                        AuthPromptScreen(
-                            modifier = Modifier.padding(innerPadding),
-                            onSimulateSession = {
-                                hasOldSession = true
-                            },
-                        )
+                val googleSignInLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.StartActivityForResult()
+                ) { result ->
+                    val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                    try {
+                        val account = task.getResult(ApiException::class.java)
+                        account?.idToken?.let { idToken ->
+                            authViewModel.signInWithGoogle(idToken)
+                        }
+                    } catch (e: ApiException) {
+                        Toast.makeText(context, "Error de Google: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                when (val state = authState) {
+                    is AuthState.SuccessExistingUser -> {
+                        LaunchedEffect(Unit) {
+                            sessionManager.saveSession()
+                            hasOldSession = true
+                            authViewModel.resetState()
+                        }
+                    }
+                    is AuthState.Error -> {
+                        LaunchedEffect(state.message) {
+                            Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
+                            authViewModel.resetState()
+                        }
+                    }
+                    else -> {}
+                }
+
+                // Si el usuario es nuevo, sobreescribimos la pantalla y mostramos el formulario
+                if (authState is AuthState.SuccessNewUser) {
+                    val state = authState as AuthState.SuccessNewUser
+                    DatosAdicionalesScreen(
+                        onSave = { username, disability, voiceType ->
+                            authViewModel.saveAdditionalUserData(
+                                uid = state.uid,
+                                email = state.email,
+                                username = username,
+                                disability = disability,
+                                voiceType = voiceType
+                            )
+                        }
+                    )
+                } else {
+                    // Si no es un usuario nuevo registrándose, mostramos el flujo normal (Home o Login Prompt)
+                    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                        if (hasOldSession) {
+                            HomeScreen(
+                                modifier = Modifier.padding(innerPadding),
+                                onLogout = {
+                                    auth.signOut()
+                                    sessionManager.clearSession()
+                                    hasOldSession = false
+                                }
+                            )
+                        } else {
+                            AuthPromptScreen(
+                                modifier = Modifier.padding(innerPadding),
+                                onGoogleSignIn = {
+                                    val webClientId = "104696983752-f7ra57005ar73oh0sf2nfpi8ved84dt4.apps.googleusercontent.com"
+
+                                    val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                        .requestIdToken(webClientId)
+                                        .requestEmail()
+                                        .build()
+
+                                    val googleClient = GoogleSignIn.getClient(context, gso)
+                                    googleClient.signOut().addOnCompleteListener {
+                                        googleSignInLauncher.launch(googleClient.signInIntent)
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -175,7 +250,7 @@ fun HomeScreen(
 @Composable
 fun AuthPromptScreen(
     modifier: Modifier = Modifier,
-    onSimulateSession: () -> Unit = {}
+    onGoogleSignIn: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -186,7 +261,7 @@ fun AuthPromptScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Ícono de la app (placeholder)
+        // Ícono de la app
         Icon(
             imageVector = Icons.Default.GraphicEq,
             contentDescription = "Logo",
@@ -221,7 +296,7 @@ fun AuthPromptScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(48.dp))
 
                 Button(
                     onClick = {
@@ -257,9 +332,8 @@ fun AuthPromptScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Botón Iniciar Sesión con Google (Outlined con ícono)
                 OutlinedButton(
-                    onClick = onSimulateSession, // Usamos esto para simular éxito por ahora
+                    onClick = onGoogleSignIn,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -268,7 +342,7 @@ fun AuthPromptScreen(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.size(8.dp))
+                    Spacer(modifier = Modifier.size(4.dp))
                     Text(text = "Iniciar sesión con Google")
                 }
             }
