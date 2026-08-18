@@ -1,4 +1,4 @@
-package com.example.haptivoice
+package com.example.haptivoice.ui.activities
 
 import android.content.Intent
 import android.os.Bundle
@@ -43,14 +43,20 @@ class RecoveryActivity : ComponentActivity() {
                             Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
                             recoveryViewModel.resetState()
                         }
+
                         is RecoveryState.Success -> {
-                            Toast.makeText(context, "Contraseña cambiada exitosamente", Toast.LENGTH_LONG).show()
+                            Toast.makeText(
+                                context,
+                                "Contraseña cambiada exitosamente",
+                                Toast.LENGTH_LONG
+                            ).show()
                             auth.signOut()
                             sessionManager.clearSession()
                             val intent = Intent(this@RecoveryActivity, LogInActivity::class.java)
                             startActivity(intent)
                             finish()
                         }
+
                         else -> {}
                     }
                 }

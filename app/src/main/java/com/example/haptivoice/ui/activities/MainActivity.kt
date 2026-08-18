@@ -1,4 +1,4 @@
-package com.example.haptivoice
+package com.example.haptivoice.ui.activities
 
 import android.content.Intent
 import android.os.Bundle

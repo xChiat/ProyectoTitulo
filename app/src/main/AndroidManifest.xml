@@ -12,7 +12,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Haptivoice">
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.activities.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Haptivoice"
             android:windowSoftInputMode="adjustResize">
@@ -23,14 +23,14 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".LogInActivity"
+            android:name=".ui.activities.LogInActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name=".SignUpActivity"
+            android:name=".ui.activities.SignUpActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".RecoveryActivity"
+        <activity android:name=".ui.activities.RecoveryActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
     </application>

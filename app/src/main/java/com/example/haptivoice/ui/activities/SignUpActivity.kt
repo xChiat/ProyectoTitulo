@@ -1,13 +1,16 @@
-package com.example.haptivoice
+package com.example.haptivoice.ui.activities
 
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,7 +48,11 @@ class SignUpActivity : ComponentActivity() {
                             authViewModel.signInWithGoogle(idToken)
                         }
                     } catch (e: ApiException) {
-                        Toast.makeText(context, "Error de Google Sign-In: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            "Error de Google Sign-In: ${e.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
 
@@ -62,6 +69,7 @@ class SignUpActivity : ComponentActivity() {
                             finish()
                         }
                     }
+
                     is AuthState.SuccessNewUser -> {
                         DatosAdicionalesScreen(
                             onSave = { username, disability, voiceType ->
@@ -75,6 +83,7 @@ class SignUpActivity : ComponentActivity() {
                             }
                         )
                     }
+
                     is AuthState.Error -> {
                         LaunchedEffect(state.message) {
                             Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
@@ -82,6 +91,7 @@ class SignUpActivity : ComponentActivity() {
                         }
                         RenderSignUpScreen(authViewModel, googleSignInLauncher)
                     }
+
                     else -> {
                         RenderSignUpScreen(authViewModel, googleSignInLauncher)
                     }
@@ -90,10 +100,10 @@ class SignUpActivity : ComponentActivity() {
         }
     }
 
-    @androidx.compose.runtime.Composable
+    @Composable
     private fun RenderSignUpScreen(
         authViewModel: AuthViewModel,
-        googleSignInLauncher: androidx.activity.compose.ManagedActivityResultLauncher<Intent, androidx.activity.result.ActivityResult>
+        googleSignInLauncher: ManagedActivityResultLauncher<Intent, ActivityResult>
     ) {
         val context = LocalContext.current
 

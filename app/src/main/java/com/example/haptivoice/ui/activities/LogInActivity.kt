@@ -1,13 +1,16 @@
-package com.example.haptivoice
+package com.example.haptivoice.ui.activities
 
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,7 +48,11 @@ class LogInActivity : ComponentActivity() {
                             authViewModel.signInWithGoogle(idToken)
                         }
                     } catch (e: ApiException) {
-                        Toast.makeText(context, "Error de Google Sign-In: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            "Error de Google Sign-In: ${e.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
                 when (val state = authState) {
@@ -61,6 +68,7 @@ class LogInActivity : ComponentActivity() {
                             finish()
                         }
                     }
+
                     is AuthState.SuccessNewUser -> {
                         // Si por algún motivo este aweonao entra con Google desde el Login y es NUEVO,
                         // lo mando devuelta a llenar sus datos obligatorios >:(
@@ -76,6 +84,7 @@ class LogInActivity : ComponentActivity() {
                             }
                         )
                     }
+
                     is AuthState.Error -> {
                         LaunchedEffect(state.message) {
                             Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
@@ -83,6 +92,7 @@ class LogInActivity : ComponentActivity() {
                         }
                         RenderLoginScreen(authViewModel, googleSignInLauncher)
                     }
+
                     else -> {
                         RenderLoginScreen(authViewModel, googleSignInLauncher)
                     }
@@ -91,10 +101,10 @@ class LogInActivity : ComponentActivity() {
         }
     }
 
-    @androidx.compose.runtime.Composable
+    @Composable
     private fun RenderLoginScreen(
         authViewModel: AuthViewModel,
-        googleSignInLauncher: androidx.activity.compose.ManagedActivityResultLauncher<Intent, androidx.activity.result.ActivityResult>
+        googleSignInLauncher: ManagedActivityResultLauncher<Intent, ActivityResult>
     ) {
         val context = LocalContext.current
 

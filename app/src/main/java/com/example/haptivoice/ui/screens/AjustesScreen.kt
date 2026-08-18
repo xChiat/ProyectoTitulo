@@ -52,7 +52,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.haptivoice.RecoveryActivity
+import com.example.haptivoice.ui.activities.RecoveryActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.haptivoice.viewmodel.ProfileUiState
 import com.example.haptivoice.viewmodel.ProfileViewModel
