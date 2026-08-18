@@ -26,7 +26,6 @@ exports.sendRecoveryOtp = onCall(async (request) => {
     }
 
     const otp = Math.floor(10000 + Math.random() * 90000).toString();
-
     const hashedOtp = hashSHA256(otp);
 
     try {
@@ -60,6 +59,35 @@ exports.sendRecoveryOtp = onCall(async (request) => {
     }
 });
 
+exports.verifyRecoveryOtp = onCall(async (request) => {
+    const email = request.data.email;
+    const otp = request.data.otp;
+
+    if (!email || !otp) {
+        throw new HttpsError('invalid-argument', 'Faltan datos para la verificación.');
+    }
+
+    const resetDocRef = admin.firestore().collection('password_resets').doc(email);
+    const doc = await resetDocRef.get();
+
+    if (!doc.exists) {
+        throw new HttpsError('not-found', 'No hay solicitud pendiente para este correo.');
+    }
+
+    const data = doc.data();
+    const hashedInputOtp = hashSHA256(otp);
+
+    if (data.otp !== hashedInputOtp) {
+        throw new HttpsError('permission-denied', 'El código ingresado es incorrecto.');
+    }
+
+    if (data.expiresAt.toDate() < new Date()) {
+        throw new HttpsError('deadline-exceeded', 'El código ha expirado. Solicita uno nuevo.');
+    }
+
+    return { success: true };
+});
+
 exports.resetPasswordWithOtp = onCall(async (request) => {
     const email = request.data.email;
     const otp = request.data.otp;
@@ -77,7 +105,6 @@ exports.resetPasswordWithOtp = onCall(async (request) => {
     }
 
     const data = doc.data();
-
     const hashedInputOtp = hashSHA256(otp);
 
     if (data.otp !== hashedInputOtp) {
