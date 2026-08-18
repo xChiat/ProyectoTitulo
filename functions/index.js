@@ -2,12 +2,10 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
+const crypto = require('crypto');
 
 admin.initializeApp();
 
-// ============================================================================
-// CONFIGURACIÓN DEL SERVIDOR DE CORREO (SMTP)
-// ============================================================================
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -16,27 +14,28 @@ const transporter = nodemailer.createTransport({
     }
 });
 
+function hashSHA256(text) {
+    return crypto.createHash('sha256').update(text).digest('hex');
+}
+
 exports.sendRecoveryOtp = onCall(async (request) => {
-    // Obtenemos el correo enviado desde la app de Android
     const email = request.data.email;
 
     if (!email) {
         throw new HttpsError('invalid-argument', 'El correo es obligatorio.');
     }
 
-    // 1. Generar un código de 5 dígitos (entre 10000 y 99999)
     const otp = Math.floor(10000 + Math.random() * 90000).toString();
 
+    const hashedOtp = hashSHA256(otp);
+
     try {
-        // 2. Guardar el código en Firestore para validarlo después
-        // Creamos una colección llamada 'password_resets'
         await admin.firestore().collection('password_resets').doc(email).set({
-            otp: otp,
+            otp: hashedOtp,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             expiresAt: new Date(Date.now() + 15 * 60 * 1000)
         });
 
-        // 3. Configurar el formato del correo
         const mailOptions = {
             from: '"HaptiVoice Soporte" <infinity.creations.xx@gmail.com>',
             to: email,
@@ -50,11 +49,9 @@ exports.sendRecoveryOtp = onCall(async (request) => {
             `
         };
 
-        // 4. Enviar el correo
         await transporter.sendMail(mailOptions);
         logger.info(`OTP enviado exitosamente a ${email}`, { structuredData: true });
 
-        // Retornar éxito a la app de Android
         return { success: true, message: 'Correo enviado exitosamente.' };
 
     } catch (error) {
@@ -64,7 +61,6 @@ exports.sendRecoveryOtp = onCall(async (request) => {
 });
 
 exports.resetPasswordWithOtp = onCall(async (request) => {
-    // Recibimos los datos desde Android
     const email = request.data.email;
     const otp = request.data.otp;
     const newPassword = request.data.newPassword;
@@ -73,7 +69,6 @@ exports.resetPasswordWithOtp = onCall(async (request) => {
         throw new HttpsError('invalid-argument', 'Faltan datos para restablecer la contraseña.');
     }
 
-    // 1. Buscamos el código en Firestore
     const resetDocRef = admin.firestore().collection('password_resets').doc(email);
     const doc = await resetDocRef.get();
 
@@ -83,22 +78,20 @@ exports.resetPasswordWithOtp = onCall(async (request) => {
 
     const data = doc.data();
 
-    // 2. Validar que el código sea correcto
-    if (data.otp !== otp) {
+    const hashedInputOtp = hashSHA256(otp);
+
+    if (data.otp !== hashedInputOtp) {
         throw new HttpsError('permission-denied', 'El código ingresado es incorrecto.');
     }
 
-    // 3. Validar que no haya expirado (15 minutos)
     if (data.expiresAt.toDate() < new Date()) {
         throw new HttpsError('deadline-exceeded', 'El código ha expirado. Solicita uno nuevo.');
     }
 
     try {
-        // 4. Cambiar la contraseña usando los privilegios de Admin
         const userRecord = await admin.auth().getUserByEmail(email);
         await admin.auth().updateUser(userRecord.uid, { password: newPassword });
 
-        // 5. Borramos el código de Firestore por seguridad para que no se re-utilice
         await resetDocRef.delete();
 
         return { success: true, message: 'Contraseña actualizada correctamente.' };

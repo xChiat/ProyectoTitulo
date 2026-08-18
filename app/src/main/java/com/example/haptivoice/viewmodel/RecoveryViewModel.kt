@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.Date
+import java.security.MessageDigest
 
 sealed class RecoveryState {
     object Idle : RecoveryState()
@@ -49,6 +50,11 @@ class RecoveryViewModel : ViewModel() {
             }
     }
 
+    private fun hashSHA256(input: String): String {
+        val bytes = MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
     fun verifyCodeLocally(code: String) {
         _uiState.value = RecoveryState.Loading
 
@@ -56,12 +62,16 @@ class RecoveryViewModel : ViewModel() {
             try {
                 val doc = firestore.collection("password_resets").document(savedEmail).get().await()
                 if (doc.exists()) {
-                    val correctOtp = doc.getString("otp")
+                    val correctHashedOtp = doc.getString("otp") // Este es el hash que viene de Firestore
                     val expiresAt = doc.getTimestamp("expiresAt")?.toDate()
 
-                    if (correctOtp == code) {
+                    // Encriptamos lo que escribió el usuario
+                    val hashedInput = hashSHA256(code)
+
+                    // Comparamos Hash contra Hash
+                    if (correctHashedOtp == hashedInput) {
                         if (expiresAt != null && Date().before(expiresAt)) {
-                            savedOtp = code // Guardamos el código para enviarlo en el paso 3
+                            savedOtp = code
                             _uiState.value = RecoveryState.CodeVerified
                         } else {
                             _uiState.value = RecoveryState.Error("El código ha expirado")
