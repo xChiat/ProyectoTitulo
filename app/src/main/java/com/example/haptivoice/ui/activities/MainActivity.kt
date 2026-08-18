@@ -60,6 +60,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
+import com.example.haptivoice.ui.screens.BluetoothConnectScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -174,7 +175,14 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onLogout: () -> Unit = {}
 ) {
+    // Variables de estado
     var isPaired by remember { mutableStateOf(false) }
+    var connectedGlovesCount by remember { mutableIntStateOf(0) } // Variable adicional: 1 o 2
+
+    // Variables para la navegación y la tarjeta del ESP32
+    var showBluetoothScreen by remember { mutableStateOf(false) }
+    var esp32Message by remember { mutableStateOf("Esperando datos del ESP32...") }
+
     var selectedItem by remember { mutableIntStateOf(0) }
 
     val navItems = listOf(
@@ -182,6 +190,18 @@ fun HomeScreen(
         Triple("Diccionario", Icons.AutoMirrored.Filled.MenuBook, 1),
         Triple("Ajustes", Icons.Default.Settings, 2)
     )
+
+    // Si se activó la pantalla de Bluetooth, la mostramos y ocultamos el Scaffold principal
+    if (showBluetoothScreen) {
+        BluetoothConnectScreen(
+            onNavigateBack = { count ->
+                connectedGlovesCount = count
+                isPaired = count > 0 // Si hay 1 o 2, isPaired es true. Si es 0, es false.
+                showBluetoothScreen = false // Volvemos al HomeScreen
+            }
+        )
+        return // Interrumpe el renderizado del código de abajo mientras estemos en Bluetooth
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -211,7 +231,7 @@ fun HomeScreen(
                 ) {
                     if (!isPaired) {
                         Button(
-                            onClick = { isPaired = true },
+                            onClick = { showBluetoothScreen = true },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 32.dp)
@@ -220,17 +240,38 @@ fun HomeScreen(
                             Text(text = "Vincular Guantes")
                         }
                     } else {
+                        // Texto que muestra cuántos guantes se conectaron (usando la variable adicional)
                         Text(
-                            text = "Guantes vinculados",
-                            style = MaterialTheme.typography.headlineSmall
+                            text = "Guantes vinculados: $connectedGlovesCount",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "TODO: Implementar contenido principal de la aplicación aquí.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+
+                        // Tarjeta (Card) que recibirá el texto del ESP32
+                        OutlinedCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 32.dp)
+                                .padding(bottom = 32.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "Mensaje entrante del ESP32:",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = esp32Message,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
                     }
                 }
             }
