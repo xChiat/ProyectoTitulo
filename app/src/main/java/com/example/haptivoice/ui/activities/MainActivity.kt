@@ -8,6 +8,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +27,8 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -61,6 +65,12 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.example.haptivoice.ui.screens.BluetoothConnectScreen
+import com.example.haptivoice.ui.theme.bg
+import com.example.haptivoice.ui.theme.darker_txt
+import com.example.haptivoice.ui.theme.icons
+import com.example.haptivoice.ui.theme.primary_btn
+import com.example.haptivoice.ui.theme.pure_white
+import com.example.haptivoice.ui.theme.txt
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -298,6 +308,7 @@ fun AuthPromptScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(bg)
             .padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -307,14 +318,21 @@ fun AuthPromptScreen(
             imageVector = Icons.Default.GraphicEq,
             contentDescription = "Logo",
             modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.primary
+            tint = primary_btn
         )
 
         Spacer(modifier = Modifier.height(32.dp))
 
         OutlinedCard(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(28.dp)
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.outlinedCardColors(
+                containerColor = pure_white
+            ),
+            border = BorderStroke(
+                width = 1.dp,
+                color = icons
+            )
         ) {
             Column(
                 modifier = Modifier
@@ -325,7 +343,8 @@ fun AuthPromptScreen(
                 Text(
                     text = "Bienvenido a haptivoice",
                     style = MaterialTheme.typography.headlineSmall,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    color = darker_txt
                 )
                 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -334,7 +353,7 @@ fun AuthPromptScreen(
                     text = "Inicia sesión o regístrate para continuar.",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = txt
                 )
 
         Spacer(modifier = Modifier.height(48.dp))
@@ -345,7 +364,11 @@ fun AuthPromptScreen(
                         context.startActivity(intent)
                         (context as? MainActivity)?.finish()
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primary_btn,
+                        contentColor = pure_white
+                    )
                 ) {
                     Text(text = "Iniciar sesión")
                 }
@@ -358,9 +381,19 @@ fun AuthPromptScreen(
                         context.startActivity(intent)
                         (context as? MainActivity)?.finish()
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = pure_white
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = primary_btn
+                    )
                 ) {
-                    Text(text = "Registrarse")
+                    Text(
+                        text = "Registrarse",
+                        color = primary_btn
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -368,7 +401,7 @@ fun AuthPromptScreen(
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 8.dp),
                     thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant
+                    color = icons
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -376,15 +409,26 @@ fun AuthPromptScreen(
                 OutlinedButton(
                     onClick = onGoogleSignIn,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = pure_white
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = primary_btn
+                    )
                 ) {
                     Icon(
                         imageVector = Icons.Default.AccountCircle,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
+                        tint = primary_btn
                     )
                     Spacer(modifier = Modifier.size(4.dp))
-                    Text(text = "Iniciar sesión con Google")
+                    Text(
+                        text = "Iniciar sesión con Google",
+                        color = primary_btn
+                    )
                 }
             }
         }
