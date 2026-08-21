@@ -76,4 +76,6 @@ class BluetoothManager(private val context: Context) {
 
     // Aquí puedes agregar callbacks o corrutinas para leer datos del ESP32
     // y actualizar _incomingMessage.value = "Mensaje recibido"
+
+    // cambio irrelevante solo quiero hacer un comit para el github XDDDDDDDDDDD
 }
