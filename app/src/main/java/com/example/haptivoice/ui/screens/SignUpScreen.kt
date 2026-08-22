@@ -2,6 +2,8 @@ package com.example.haptivoice.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import android.util.Log
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +20,8 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -25,7 +29,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,9 +44,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
+import com.example.haptivoice.ui.theme.bg
+import com.example.haptivoice.ui.theme.darker_bg
+import com.example.haptivoice.ui.theme.darker_txt
+import com.example.haptivoice.ui.theme.icons
+import com.example.haptivoice.ui.theme.primary_btn
+import com.example.haptivoice.ui.theme.pure_white
+import com.example.haptivoice.ui.theme.secondary_btn
+import com.example.haptivoice.ui.theme.txt
+import com.example.haptivoice.ui.theme.unfocused_field
 import com.example.haptivoice.utils.ValidationResult
 import com.example.haptivoice.utils.ValidationUtils
 
@@ -55,6 +71,7 @@ fun SignUpScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(bg)
             .padding(16.dp)
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.Center,
@@ -62,20 +79,32 @@ fun SignUpScreen(
     ) {
         OutlinedCard(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(28.dp)
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.outlinedCardColors(
+                containerColor = pure_white
+            ),
+            border = BorderStroke(
+                width = 1.dp,
+                color = icons
+            )
         ) {
             Column(
                 modifier = Modifier
-                    .padding(24.dp)
+                    .padding(vertical = 20.dp, horizontal = 24.dp)
                     .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+
+                Spacer(modifier = Modifier.height(2.dp))
+
                 Text(
                     text = "Registrarse",
-                    style = MaterialTheme.typography.headlineSmall
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center,
+                    color = darker_txt
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 var username by remember { mutableStateOf("") }
                 var email by remember { mutableStateOf("") }
@@ -90,7 +119,6 @@ fun SignUpScreen(
                 val disabilityOptions = listOf("Auditiva", "Verbal", "Ninguna")
                 val voiceTypeOptions = listOf("Femenina", "Masculino", "Neutral")
 
-                // Nombre de usuario
                 OutlinedTextField(
                     value = username,
                     onValueChange = { username = it },
@@ -103,12 +131,28 @@ fun SignUpScreen(
                         if (usernameError != null) {
                             Text(usernameError!!)
                         }
-                    }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primary_btn,
+                        unfocusedBorderColor = unfocused_field,
+                        errorBorderColor = secondary_btn,
+
+                        focusedLabelColor = primary_btn,
+                        unfocusedLabelColor = unfocused_field,
+                        errorLabelColor = secondary_btn,
+
+                        focusedLeadingIconColor = primary_btn,
+                        unfocusedLeadingIconColor = unfocused_field,
+                        errorLeadingIconColor = secondary_btn,
+
+                        focusedSupportingTextColor = primary_btn,
+                        unfocusedSupportingTextColor = unfocused_field,
+                        errorSupportingTextColor = secondary_btn
+                    )
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-                // Correo
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
@@ -121,12 +165,28 @@ fun SignUpScreen(
                         if (emailError != null) {
                             Text(emailError!!)
                         }
-                    }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primary_btn,
+                        unfocusedBorderColor = unfocused_field,
+                        errorBorderColor = secondary_btn,
+
+                        focusedLabelColor = primary_btn,
+                        unfocusedLabelColor = unfocused_field,
+                        errorLabelColor = secondary_btn,
+
+                        focusedLeadingIconColor = primary_btn,
+                        unfocusedLeadingIconColor = unfocused_field,
+                        errorLeadingIconColor = secondary_btn,
+
+                        focusedSupportingTextColor = primary_btn,
+                        unfocusedSupportingTextColor = unfocused_field,
+                        errorSupportingTextColor = secondary_btn
+                    )
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-                // Contraseña
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
@@ -140,21 +200,47 @@ fun SignUpScreen(
                         if (passwordError != null) {
                             Text(passwordError!!)
                         }
-                    }
-                )
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primary_btn,
+                        unfocusedBorderColor = unfocused_field,
+                        errorBorderColor = secondary_btn,
 
-                Spacer(modifier = Modifier.height(24.dp))
+                        focusedLabelColor = primary_btn,
+                        unfocusedLabelColor = unfocused_field,
+                        errorLabelColor = secondary_btn,
 
-                // ¿Presento alguna discapacidad?
-                Text(
-                    text = "¿Presento alguna discapacidad?",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.fillMaxWidth()
+                        focusedLeadingIconColor = primary_btn,
+                        unfocusedLeadingIconColor = unfocused_field,
+                        errorLeadingIconColor = secondary_btn,
+
+                        focusedSupportingTextColor = primary_btn,
+                        unfocusedSupportingTextColor = unfocused_field,
+                        errorSupportingTextColor = secondary_btn
+                    )
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Segmented button para discapacidad
+                Text(
+                    text = "¿Presenta alguna discapacidad?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth(),
+                    color = txt
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val segmentedColors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = primary_btn,
+                    activeContentColor = pure_white,
+                    activeBorderColor = darker_bg,
+
+                    inactiveContainerColor = pure_white,
+                    inactiveContentColor = primary_btn,
+                    inactiveBorderColor = primary_btn
+                )
+
                 SingleChoiceSegmentedButtonRow(
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -168,6 +254,8 @@ fun SignUpScreen(
                                 topEnd = if (index == disabilityOptions.size - 1) 12.dp else 0.dp,
                                 bottomEnd = if (index == disabilityOptions.size - 1) 12.dp else 0.dp
                             ),
+                            icon = {},
+                            colors = segmentedColors,
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(label)
@@ -175,18 +263,17 @@ fun SignUpScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Tipo de voz sintética
                 Text(
                     text = "Tipo de voz sintética",
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    color = txt
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Segmented button para tipo de voz
                 SingleChoiceSegmentedButtonRow(
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -200,6 +287,8 @@ fun SignUpScreen(
                                 topEnd = if (index == voiceTypeOptions.size - 1) 12.dp else 0.dp,
                                 bottomEnd = if (index == voiceTypeOptions.size - 1) 12.dp else 0.dp
                             ),
+                            icon = {},
+                            colors = segmentedColors,
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(label)
@@ -207,17 +296,14 @@ fun SignUpScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Botón Registrarse
                 Button(
                     onClick = {
-                        // Limpiar errores previos
                         usernameError = null
                         emailError = null
                         passwordError = null
 
-                        // Validar cada campo individualmente
                         val usernameValidation = ValidationUtils.validateUsername(username)
                         if (usernameValidation !is ValidationResult.Valid) {
                             usernameError = when (usernameValidation) {
@@ -245,9 +331,7 @@ fun SignUpScreen(
                             }
                         }
 
-                        // Si todas las validaciones son válidas, ejecutar el sign up
                         if (usernameError == null && emailError == null && passwordError == null) {
-                            // Log cat message - se llamo al onSignUp
                             Log.d("SignUpScreen-Debug", "se llamo al onSignUp")
                             onSignUp(
                                 username,
@@ -259,41 +343,59 @@ fun SignUpScreen(
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primary_btn,
+                        contentColor = pure_white
+                    )
                 ) {
                     Text(text = "Registrarse")
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 8.dp),
                     thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant
+                    color = icons
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Botón Ingresar con Google
                 OutlinedButton(
                     onClick = onGoogleSignUp,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = pure_white
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = primary_btn
+                    )
                 ) {
                     Icon(
                         imageVector = Icons.Default.AccountCircle,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
+                        tint = primary_btn
                     )
+
                     Spacer(modifier = Modifier.size(8.dp))
-                    Text(text = "Registrarse con Google")
+
+                    Text(
+                        text = "Registrarse con Google",
+                        color = primary_btn
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-                // TextButton para login
                 TextButton(onClick = onLoginClick) {
-                    Text(text = "¿Ya tienes cuenta? Inicia sesión")
+                    Text(
+                        text = "¿Ya tienes cuenta? Inicia sesión",
+                        color = primary_btn
+                    )
                 }
             }
         }

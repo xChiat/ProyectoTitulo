@@ -186,11 +186,9 @@ fun LoginScreen(
 
                 Button(
                     onClick = {
-                        // Limpiar errores previos
                         emailError = null
                         passwordError = null
 
-                        // Validar cada campo individualmente
                         val emailValidation = ValidationUtils.validateEmail(email)
                         if (emailValidation !is ValidationResult.Valid) {
                             emailError = when (emailValidation) {
@@ -209,7 +207,6 @@ fun LoginScreen(
                             }
                         }
 
-                        // Si todas las validaciones son válidas, ejecutar el login
                         if (emailError == null && passwordError == null) {
                             onLogin(email, password)
                         }
