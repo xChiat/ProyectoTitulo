@@ -71,6 +71,7 @@ import com.example.haptivoice.ui.theme.icons
 import com.example.haptivoice.ui.theme.primary_btn
 import com.example.haptivoice.ui.theme.pure_white
 import com.example.haptivoice.ui.theme.txt
+import com.example.haptivoice.utils.BluetoothManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,6 +96,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             HaptivoiceTheme {
                 val context = LocalContext.current
+                // Manager Bluetooth compartido para la conexión con el ESP32
+                val bluetoothManager = remember { BluetoothManager(context.applicationContext) }
                 val authState by authViewModel.authState.collectAsState()
                 var hasOldSession by remember { mutableStateOf(initialSessionState) }
 
@@ -149,6 +152,7 @@ class MainActivity : ComponentActivity() {
                         if (hasOldSession) {
                             HomeScreen(
                                 modifier = Modifier.padding(innerPadding),
+                                bluetoothManager = bluetoothManager,
                                 onLogout = {
                                     auth.signOut()
                                     sessionManager.clearSession()
@@ -183,7 +187,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    onLogout: () -> Unit = {}
+    bluetoothManager: BluetoothManager,
+    onLogout: () -> Unit = {},
 ) {
     // Variables de estado
     var isPaired by remember { mutableStateOf(false) }
@@ -191,7 +196,8 @@ fun HomeScreen(
 
     // Variables para la navegación y la tarjeta del ESP32
     var showBluetoothScreen by remember { mutableStateOf(false) }
-    var esp32Message by remember { mutableStateOf("Esperando datos del ESP32...") }
+    // El mensaje ahora se actualiza desde BluetoothManager
+    val esp32Message by bluetoothManager.incomingMessage.collectAsState()
 
     var selectedItem by remember { mutableIntStateOf(0) }
 
@@ -204,6 +210,7 @@ fun HomeScreen(
     // Si se activó la pantalla de Bluetooth, la mostramos y ocultamos el Scaffold principal
     if (showBluetoothScreen) {
         BluetoothConnectScreen(
+            bluetoothManager = bluetoothManager,
             onNavigateBack = { count ->
                 connectedGlovesCount = count
                 isPaired = count > 0 // Si hay 1 o 2, isPaired es true. Si es 0, es false.
@@ -346,9 +353,9 @@ fun AuthPromptScreen(
                     textAlign = TextAlign.Center,
                     color = darker_txt
                 )
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 Text(
                     text = "Inicia sesión o regístrate para continuar.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -356,7 +363,7 @@ fun AuthPromptScreen(
                     color = txt
                 )
 
-        Spacer(modifier = Modifier.height(48.dp))
+                Spacer(modifier = Modifier.height(48.dp))
 
                 Button(
                     onClick = {
@@ -439,7 +446,13 @@ fun AuthPromptScreen(
 @Composable
 fun HomeScreenPreview() {
     HaptivoiceTheme {
-        HomeScreen()
+        // Manager usado solo para mostrar el Preview
+        val context = LocalContext.current
+        val bluetoothManager = remember { BluetoothManager(context.applicationContext) }
+
+        HomeScreen(
+            bluetoothManager = bluetoothManager
+        )
     }
 }
 
