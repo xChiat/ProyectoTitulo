@@ -36,27 +36,17 @@ class AuthViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
+
             try {
-                // Verificar que el email no exista en Firestore
-                val userExists = firestore.collection("users")
-                    .whereEqualTo("email", email)
-                    .get()
-                    .await()
-                    .isEmpty
-                    .not()
+                // Crear usuario primero en Firebase Auth
+                val authResult =
+                    auth.createUserWithEmailAndPassword(email, password).await()
 
-                if (userExists) {
-                    Log.d("AuthViewModel", "El correo electrónico ya está registrado en Firestore")
-                    _authState.value = AuthState.Error("Ya existe un usuario registrado con este correo")
-                    return@launch
-                }
-
-                // Crear usuario en Firebase Auth
-                val authResult = auth.createUserWithEmailAndPassword(email, password).await()
                 val userId = authResult.user?.uid
 
                 if (userId == null) {
-                    _authState.value = AuthState.Error("Error al crear la cuenta")
+                    _authState.value =
+                        AuthState.Error("Error al crear la cuenta")
                     return@launch
                 }
 
@@ -70,24 +60,60 @@ class AuthViewModel : ViewModel() {
                     createdAt = Timestamp.now()
                 )
 
-                firestore.collection("users").document(userId).set(userData).await()
-                Log.d("AuthViewModel", "Datos del usuario guardados en Firestore")
+                firestore.collection("users")
+                    .document(userId)
+                    .set(userData)
+                    .await()
+
+                Log.d(
+                    "AuthViewModel",
+                    "Datos del usuario guardados en Firestore"
+                )
 
                 // Si el registro con correo es exitoso, ya tiene todos los datos y es un usuario "Existente"/Completo
-                _authState.value = AuthState.SuccessExistingUser(userId)
+                _authState.value =
+                    AuthState.SuccessExistingUser(userId)
 
             } catch (e: Exception) {
+
                 val errorMessage = when {
-                    e.message?.contains("email address is already in use") == true ->
+
+                    e.message?.contains(
+                        "email address is already in use",
+                        ignoreCase = true
+                    ) == true ->
                         "Este correo electrónico ya está registrado"
-                    e.message?.contains("password") == true ->
+
+                    e.message?.contains(
+                        "email-already-in-use",
+                        ignoreCase = true
+                    ) == true ->
+                        "Este correo electrónico ya está registrado"
+
+                    e.message?.contains(
+                        "password",
+                        ignoreCase = true
+                    ) == true ->
                         "La contraseña no cumple con los requisitos de seguridad"
-                    e.message?.contains("network") == true ->
+
+                    e.message?.contains(
+                        "network",
+                        ignoreCase = true
+                    ) == true ->
                         "Error de conexión. Verifica tu conexión a internet"
-                    else -> e.message ?: "Error desconocido durante el registro"
+
+                    else ->
+                        e.localizedMessage
+                            ?: "Error desconocido durante el registro"
                 }
-                Log.d("AuthViewModel", "Error durante el registro: $errorMessage")
-                _authState.value = AuthState.Error(errorMessage)
+
+                Log.d(
+                    "AuthViewModel",
+                    "Error durante el registro: $errorMessage"
+                )
+
+                _authState.value =
+                    AuthState.Error(errorMessage)
             }
         }
     }

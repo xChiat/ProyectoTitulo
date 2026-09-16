@@ -3,6 +3,7 @@ package com.example.haptivoice.ui.activities
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
+import com.example.haptivoice.R
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -113,7 +114,7 @@ class SignUpActivity : ComponentActivity() {
             },
             onGoogleSignUp = {
                 val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestIdToken("104696983752-f7ra57005ar73oh0sf2nfpi8ved84dt4.apps.googleusercontent.com")
+                    .requestIdToken(context.getString(R.string.default_web_client_id))
                     .requestEmail()
                     .build()
 

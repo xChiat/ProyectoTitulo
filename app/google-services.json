@@ -12,7 +12,28 @@
           "package_name": "com.example.haptivoice"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "104696983752-3g7n9f4r9ai8tkqe8php05taf1rk7514.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.haptivoice",
+            "certificate_hash": "ce95f2915b92dce9f89c389ebab3aa9e0b0c5705"
+          }
+        },
+        {
+          "client_id": "104696983752-i7iniiaj4s9llo6kk9m285d6gasvgnbp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.haptivoice",
+            "certificate_hash": "8deababdfcc500425e52bf387871066b0980df58"
+          }
+        },
+        {
+          "client_id": "104696983752-f7ra57005ar73oh0sf2nfpi8ved84dt4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCS3n1FHtMSJVfi95s_1OYnrEue58vcqnA"
@@ -20,7 +41,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "104696983752-f7ra57005ar73oh0sf2nfpi8ved84dt4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

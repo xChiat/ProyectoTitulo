@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import com.example.haptivoice.R
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -163,7 +164,7 @@ class MainActivity : ComponentActivity() {
                             AuthPromptScreen(
                                 modifier = Modifier.padding(innerPadding),
                                 onGoogleSignIn = {
-                                    val webClientId = "104696983752-f7ra57005ar73oh0sf2nfpi8ved84dt4.apps.googleusercontent.com"
+                                    val webClientId = context.getString(R.string.default_web_client_id)
 
                                     val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                                         .requestIdToken(webClientId)
