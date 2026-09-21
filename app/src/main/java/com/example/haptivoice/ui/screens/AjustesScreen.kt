@@ -52,10 +52,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
 import com.example.haptivoice.ui.activities.RecoveryActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.haptivoice.viewmodel.ProfileUiState
 import com.example.haptivoice.viewmodel.ProfileViewModel
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +71,9 @@ fun AjustesScreen(
     val uiState by profileViewModel.uiState.collectAsState()
 
     val context = LocalContext.current
+
+    //confirmación antes de eliminar la cuenta
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -88,54 +95,100 @@ fun AjustesScreen(
         SectionTitle(title = "Perfil de Usuario")
 
         when (val state = uiState) {
+
             is ProfileUiState.Loading -> {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp))
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(16.dp)
+                )
             }
+
             is ProfileUiState.Error -> {
-                Text(text = state.message, color = MaterialTheme.colorScheme.error)
+                Text(
+                    text = state.message,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
+
             is ProfileUiState.Success -> {
                 val userData = state.userData
                 var isEditing by remember { mutableStateOf(false) }
 
-                var editedUsername by remember(userData) { mutableStateOf(userData.username) }
-                val voiceOptions = listOf("Femenina", "Masculino", "Neutral")
+                var editedUsername by remember(userData) {
+                    mutableStateOf(userData.username)
+                }
+
+                val voiceOptions = listOf(
+                    "Femenina",
+                    "Masculino",
+                    "Neutral"
+                )
+
                 var editedVoiceTypeIndex by remember(userData) {
-                    mutableIntStateOf(voiceOptions.indexOf(userData.voiceType).takeIf { it >= 0 } ?: 0)
+                    mutableIntStateOf(
+                        voiceOptions.indexOf(userData.voiceType)
+                            .takeIf { it >= 0 } ?: 0
+                    )
                 }
 
                 if (!isEditing) {
+
                     SettingsItem(
                         icon = Icons.Default.Person,
                         title = "Nombre de usuario",
                         subtitle = userData.username,
                         trailingContent = {
-                            IconButton(onClick = { isEditing = true }) {
-                                Icon(Icons.Default.Edit, contentDescription = "Editar perfil")
+                            IconButton(
+                                onClick = {
+                                    isEditing = true
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Editar perfil"
+                                )
                             }
                         }
                     )
+
                     SettingsItem(
                         icon = Icons.Default.Email,
                         title = "Correo electrónico",
                         subtitle = userData.email
                     )
+
                     SettingsItem(
                         icon = Icons.Default.RecordVoiceOver,
                         title = "Preferencia de voz",
                         subtitle = userData.voiceType,
                         trailingContent = {
-                            IconButton(onClick = { isEditing = true }) {
-                                Icon(Icons.Default.Edit, contentDescription = "Editar tipo de voz")
+                            IconButton(
+                                onClick = {
+                                    isEditing = true
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Editar tipo de voz"
+                                )
                             }
                         }
                     )
+
                 } else {
+
                     OutlinedTextField(
                         value = editedUsername,
-                        onValueChange = { editedUsername = it },
-                        label = { Text("Nombre de usuario") },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        onValueChange = {
+                            editedUsername = it
+                        },
+                        label = {
+                            Text("Nombre de usuario")
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
                         singleLine = true
                     )
 
@@ -145,29 +198,57 @@ fun AjustesScreen(
                         subtitle = userData.email
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(
+                        modifier = Modifier.height(16.dp)
+                    )
+
                     Text(
                         text = "Tipo de voz sintética",
                         style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
                     )
 
                     SingleChoiceSegmentedButtonRow(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
                     ) {
+
                         voiceOptions.forEachIndexed { index, label ->
+
                             SegmentedButton(
                                 selected = editedVoiceTypeIndex == index,
-                                onClick = { editedVoiceTypeIndex = index },
+                                onClick = {
+                                    editedVoiceTypeIndex = index
+                                },
                                 shape = RoundedCornerShape(
-                                    topStart = if (index == 0) 12.dp else 0.dp,
-                                    bottomStart = if (index == 0) 12.dp else 0.dp,
-                                    topEnd = if (index == voiceOptions.size - 1) 12.dp else 0.dp,
-                                    bottomEnd = if (index == voiceOptions.size - 1) 12.dp else 0.dp
+                                    topStart =
+                                        if (index == 0) 12.dp else 0.dp,
+
+                                    bottomStart =
+                                        if (index == 0) 12.dp else 0.dp,
+
+                                    topEnd =
+                                        if (index == voiceOptions.size - 1)
+                                            12.dp
+                                        else
+                                            0.dp,
+
+                                    bottomEnd =
+                                        if (index == voiceOptions.size - 1)
+                                            12.dp
+                                        else
+                                            0.dp
                                 ),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text(label, style = MaterialTheme.typography.labelSmall)
+
+                                Text(
+                                    label,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
                             }
                         }
                     }
@@ -176,28 +257,48 @@ fun AjustesScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
+
                         OutlinedButton(
                             onClick = {
+
                                 isEditing = false
-                                editedUsername = userData.username
-                                editedVoiceTypeIndex = voiceOptions.indexOf(userData.voiceType).takeIf { it >= 0 } ?: 0
+
+                                editedUsername =
+                                    userData.username
+
+                                editedVoiceTypeIndex =
+                                    voiceOptions
+                                        .indexOf(userData.voiceType)
+                                        .takeIf { it >= 0 } ?: 0
                             },
                             modifier = Modifier.padding(end = 8.dp)
                         ) {
+
                             Text("Cancelar")
                         }
+
                         Button(
                             onClick = {
+
                                 profileViewModel.updateProfile(
                                     newUsername = editedUsername,
-                                    newVoiceType = voiceOptions[editedVoiceTypeIndex]
+                                    newVoiceType =
+                                        voiceOptions[editedVoiceTypeIndex]
                                 )
+
                                 isEditing = false
                             }
                         ) {
+
                             Text("Guardar cambios")
                         }
                     }
+                }
+            }
+
+            is ProfileUiState.AccountDeleted -> {
+                LaunchedEffect(Unit) {
+                    onLogout()
                 }
             }
         }
@@ -241,8 +342,49 @@ fun AjustesScreen(
             title = "Eliminar cuenta",
             subtitle = "Esta acción es irreversible",
             iconTint = MaterialTheme.colorScheme.error,
-            textColor = MaterialTheme.colorScheme.error
+            textColor = MaterialTheme.colorScheme.error,
+            onClick = {
+                showDeleteDialog = true
+            }
         )
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showDeleteDialog = false
+                },
+                title = {
+                    Text("Eliminar cuenta")
+                },
+                text = {
+                    Text(
+                        "¿Estás seguro de que deseas eliminar tu cuenta? " +
+                                "Esta acción es permanente y no se puede deshacer."
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteDialog = false
+                            profileViewModel.deleteAccount()
+                        }
+                    ) {
+                        Text(
+                            text = "Eliminar",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteDialog = false
+                        }
+                    ) {
+                        Text("Cancelar")
+                    }
+                }
+            )
+        }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 

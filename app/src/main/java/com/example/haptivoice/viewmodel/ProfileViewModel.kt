@@ -10,11 +10,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException
+
 
 sealed class ProfileUiState {
     object Loading : ProfileUiState()
     data class Success(val userData: UserData) : ProfileUiState()
     data class Error(val message: String) : ProfileUiState()
+
+    //Cuenta eliminada correctamente
+    object AccountDeleted : ProfileUiState()
 }
 
 class ProfileViewModel : ViewModel() {
@@ -64,6 +69,42 @@ class ProfileViewModel : ViewModel() {
                 loadUserData()
             } catch (e: Exception) {
                 _uiState.value = ProfileUiState.Error(e.localizedMessage ?: "Error al actualizar perfil")
+            }
+        }
+    }
+    fun deleteAccount() {
+        viewModelScope.launch {
+            val user = auth.currentUser
+            val uid = user?.uid
+
+            if (user == null || uid == null) {
+                _uiState.value = ProfileUiState.Error("No hay sesión activa")
+                return@launch
+            }
+
+            _uiState.value = ProfileUiState.Loading
+
+            try {
+                // Elimina los datos del usuario en Firestore
+                firestore.collection("users")
+                    .document(uid)
+                    .delete()
+                    .await()
+
+                // Elimina la cuenta de Firebase Authentication
+                user.delete().await()
+
+                _uiState.value = ProfileUiState.AccountDeleted
+
+            } catch (e: FirebaseAuthRecentLoginRequiredException) {
+                _uiState.value = ProfileUiState.Error(
+                    "Por seguridad, debes volver a iniciar sesión antes de eliminar tu cuenta"
+                )
+
+            } catch (e: Exception) {
+                _uiState.value = ProfileUiState.Error(
+                    e.localizedMessage ?: "Error al eliminar la cuenta"
+                )
             }
         }
     }
