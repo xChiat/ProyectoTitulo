@@ -15,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.ViewModelProvider
 import com.example.haptivoice.R
 import com.example.haptivoice.model.AuthState
@@ -108,16 +109,13 @@ class LogInActivity : ComponentActivity() {
         googleSignInLauncher: ManagedActivityResultLauncher<Intent, ActivityResult>
     ) {
         val context = LocalContext.current
+        val webClientId = stringResource(R.string.default_web_client_id)
 
         LoginScreen(
             onLogin = { email, password ->
                 authViewModel.signInWithEmail(email, password)
             },
             onGoogleSignIn = {
-                // Usa el Client ID generado desde google-services.json
-                val webClientId =
-                    context.getString(R.string.default_web_client_id)
-
                 val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                     .requestIdToken(webClientId)
                     .requestEmail()

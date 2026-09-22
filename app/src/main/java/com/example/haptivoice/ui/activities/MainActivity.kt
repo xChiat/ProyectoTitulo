@@ -50,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -163,9 +164,7 @@ class MainActivity : ComponentActivity() {
                         } else {
                             AuthPromptScreen(
                                 modifier = Modifier.padding(innerPadding),
-                                onGoogleSignIn = {
-                                    val webClientId = context.getString(R.string.default_web_client_id)
-
+                                onGoogleSignIn = { webClientId ->
                                     val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                                         .requestIdToken(webClientId)
                                         .requestEmail()
@@ -309,9 +308,10 @@ fun HomeScreen(
 @Composable
 fun AuthPromptScreen(
     modifier: Modifier = Modifier,
-    onGoogleSignIn: () -> Unit = {}
+    onGoogleSignIn: (String) -> Unit = { _ -> }
 ) {
     val context = LocalContext.current
+    val webClientId = stringResource(R.string.default_web_client_id)
 
     Column(
         modifier = modifier
@@ -415,7 +415,7 @@ fun AuthPromptScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 OutlinedButton(
-                    onClick = onGoogleSignIn,
+                    onClick = { onGoogleSignIn(webClientId) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -461,6 +461,6 @@ fun HomeScreenPreview() {
 @Composable
 fun AuthPromptScreenPreview() {
     HaptivoiceTheme {
-        AuthPromptScreen()
+        AuthPromptScreen(onGoogleSignIn = { _ -> })
     }
 }
