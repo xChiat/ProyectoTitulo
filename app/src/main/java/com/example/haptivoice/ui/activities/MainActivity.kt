@@ -13,7 +13,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,28 +21,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -56,17 +50,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import com.example.haptivoice.model.AuthState
-import com.example.haptivoice.ui.screens.AjustesScreen
 import com.example.haptivoice.ui.screens.DatosAdicionalesScreen
-import com.example.haptivoice.ui.screens.DiccionarioScreen
+import com.example.haptivoice.ui.screens.HomeScreen
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
-import com.example.haptivoice.utils.SessionManager
-import com.example.haptivoice.viewmodel.AuthViewModel
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
-import com.google.firebase.auth.FirebaseAuth
-import com.example.haptivoice.ui.screens.BluetoothConnectScreen
 import com.example.haptivoice.ui.theme.bg
 import com.example.haptivoice.ui.theme.darker_txt
 import com.example.haptivoice.ui.theme.icons
@@ -74,10 +60,13 @@ import com.example.haptivoice.ui.theme.primary_btn
 import com.example.haptivoice.ui.theme.pure_white
 import com.example.haptivoice.ui.theme.txt
 import com.example.haptivoice.utils.BluetoothManager
-import androidx.compose.material.icons.filled.Hearing
-import androidx.compose.runtime.DisposableEffect
-import com.example.haptivoice.ui.screens.AyudasAuditivasScreen
+import com.example.haptivoice.utils.SessionManager
 import com.example.haptivoice.utils.TextToSpeechManager
+import com.example.haptivoice.viewmodel.AuthViewModel
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -193,135 +182,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun HomeScreen(
-    modifier: Modifier = Modifier,
-    bluetoothManager: BluetoothManager,
-    ttsManager: TextToSpeechManager,
-    onLogout: () -> Unit = {},
-) {
-    // Variables de estado
-    var isPaired by remember { mutableStateOf(false) }
-    var connectedGlovesCount by remember { mutableIntStateOf(0) } // Variable adicional: 1 o 2
-
-    // Variables para la navegación y la tarjeta del ESP32
-    var showBluetoothScreen by remember { mutableStateOf(false) }
-    // El mensaje ahora se actualiza desde BluetoothManager
-    val esp32Message by bluetoothManager.incomingMessage.collectAsState()
-
-    var selectedItem by remember { mutableIntStateOf(0) }
-
-    val navItems = listOf(
-        Triple("Home", Icons.Default.Home, 0),
-        Triple("Ayudas", Icons.Default.Hearing, 1),
-        Triple("Diccionario", Icons.AutoMirrored.Filled.MenuBook, 2),
-        Triple("Ajustes", Icons.Default.Settings, 3)
-    )
-
-    // Si se activó la pantalla de Bluetooth, la mostramos y ocultamos el Scaffold principal
-    if (showBluetoothScreen) {
-        BluetoothConnectScreen(
-            bluetoothManager = bluetoothManager,
-            onNavigateBack = { count ->
-                connectedGlovesCount = count
-                isPaired = count > 0 // Si hay 1 o 2, isPaired es true. Si es 0, es false.
-                showBluetoothScreen = false // Volvemos al HomeScreen
-            }
-        )
-        return // Interrumpe el renderizado del código de abajo mientras estemos en Bluetooth
-    }
-
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        bottomBar = {
-            NavigationBar(
-                windowInsets = WindowInsets(0.dp)
-            ) {
-                navItems.forEach { (label, icon, index) ->
-                    NavigationBarItem(
-                        selected = selectedItem == index,
-                        onClick = { selectedItem = index },
-                        label = { Text(text = label) },
-                        icon = { Icon(imageVector = icon, contentDescription = label) }
-                    )
-                }
-            }
-        }
-    ) { innerPadding ->
-        when (selectedItem) {
-            0 -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    verticalArrangement = Arrangement.Bottom,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    if (!isPaired) {
-                        Button(
-                            onClick = { showBluetoothScreen = true },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 32.dp)
-                                .padding(bottom = 16.dp)
-                        ) {
-                            Text(text = "Vincular Guantes")
-                        }
-                    } else {
-                        // Texto que muestra cuántos guantes se conectaron (usando la variable adicional)
-                        Text(
-                            text = "Guantes vinculados: $connectedGlovesCount",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Tarjeta (Card) que recibirá el texto del ESP32
-                        OutlinedCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 32.dp)
-                                .padding(bottom = 32.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    text = "Mensaje entrante del ESP32:",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = esp32Message,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            1 -> {
-                AyudasAuditivasScreen(
-                    ttsManager = ttsManager,
-                    modifier = Modifier.padding(innerPadding)
-                )
-            }
-            2 -> {
-                DiccionarioScreen(modifier = Modifier.padding(innerPadding))
-            }
-            3 -> {
-                AjustesScreen(
-                    modifier = Modifier.padding(innerPadding),
-                    onLogout = onLogout
-                )
             }
         }
     }
@@ -462,22 +322,6 @@ fun AuthPromptScreen(
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun HomeScreenPreview() {
-    HaptivoiceTheme {
-        // Manager usado solo para mostrar el Preview
-        val context = LocalContext.current
-        val bluetoothManager = remember { BluetoothManager(context.applicationContext) }
-        val ttsManager = remember { TextToSpeechManager(context.applicationContext) }
-
-        HomeScreen(
-            bluetoothManager = bluetoothManager,
-            ttsManager = ttsManager
-        )
     }
 }
 
