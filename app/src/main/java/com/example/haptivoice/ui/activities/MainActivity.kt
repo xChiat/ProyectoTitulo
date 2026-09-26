@@ -74,6 +74,10 @@ import com.example.haptivoice.ui.theme.primary_btn
 import com.example.haptivoice.ui.theme.pure_white
 import com.example.haptivoice.ui.theme.txt
 import com.example.haptivoice.utils.BluetoothManager
+import androidx.compose.material.icons.filled.Hearing
+import androidx.compose.runtime.DisposableEffect
+import com.example.haptivoice.ui.screens.AyudasAuditivasScreen
+import com.example.haptivoice.utils.TextToSpeechManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,6 +104,15 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current
                 // Manager Bluetooth compartido para la conexión con el ESP32
                 val bluetoothManager = remember { BluetoothManager(context.applicationContext) }
+
+                // Text to speech manager
+                val ttsManager = remember { TextToSpeechManager(context.applicationContext) }
+
+                DisposableEffect(Unit) {
+                    onDispose { ttsManager.destroy() }
+                }
+
+                // Sesión
                 val authState by authViewModel.authState.collectAsState()
                 var hasOldSession by remember { mutableStateOf(initialSessionState) }
 
@@ -155,6 +168,7 @@ class MainActivity : ComponentActivity() {
                             HomeScreen(
                                 modifier = Modifier.padding(innerPadding),
                                 bluetoothManager = bluetoothManager,
+                                ttsManager = ttsManager,
                                 onLogout = {
                                     auth.signOut()
                                     sessionManager.clearSession()
@@ -188,6 +202,7 @@ class MainActivity : ComponentActivity() {
 fun HomeScreen(
     modifier: Modifier = Modifier,
     bluetoothManager: BluetoothManager,
+    ttsManager: TextToSpeechManager,
     onLogout: () -> Unit = {},
 ) {
     // Variables de estado
@@ -203,8 +218,9 @@ fun HomeScreen(
 
     val navItems = listOf(
         Triple("Home", Icons.Default.Home, 0),
-        Triple("Diccionario", Icons.AutoMirrored.Filled.MenuBook, 1),
-        Triple("Ajustes", Icons.Default.Settings, 2)
+        Triple("Ayudas", Icons.Default.Hearing, 1),
+        Triple("Diccionario", Icons.AutoMirrored.Filled.MenuBook, 2),
+        Triple("Ajustes", Icons.Default.Settings, 3)
     )
 
     // Si se activó la pantalla de Bluetooth, la mostramos y ocultamos el Scaffold principal
@@ -293,9 +309,15 @@ fun HomeScreen(
                 }
             }
             1 -> {
-                DiccionarioScreen(modifier = Modifier.padding(innerPadding))
+                AyudasAuditivasScreen(
+                    ttsManager = ttsManager,
+                    modifier = Modifier.padding(innerPadding)
+                )
             }
             2 -> {
+                DiccionarioScreen(modifier = Modifier.padding(innerPadding))
+            }
+            3 -> {
                 AjustesScreen(
                     modifier = Modifier.padding(innerPadding),
                     onLogout = onLogout
@@ -450,9 +472,11 @@ fun HomeScreenPreview() {
         // Manager usado solo para mostrar el Preview
         val context = LocalContext.current
         val bluetoothManager = remember { BluetoothManager(context.applicationContext) }
+        val ttsManager = remember { TextToSpeechManager(context.applicationContext) }
 
         HomeScreen(
-            bluetoothManager = bluetoothManager
+            bluetoothManager = bluetoothManager,
+            ttsManager = ttsManager
         )
     }
 }

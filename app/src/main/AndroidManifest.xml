@@ -21,6 +21,18 @@
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
 
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Solo si más adelante montas un servicio en primer plano para TTS -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <uses-permission
         android:name="android.permission.BLUETOOTH_CONNECT" />
 

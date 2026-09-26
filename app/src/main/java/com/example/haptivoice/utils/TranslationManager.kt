@@ -5,20 +5,24 @@ import com.google.firebase.functions.FirebaseFunctions
 class TranslationManager {
 
     // Proveedor de traducción usado por el momento.
-    // Actualmente se invoca mediante Firebase Cloud Functions,
+    // Actualmente, se invoca mediante Firebase Cloud Functions,
     // pero puede reemplazarse por otro proveedor más adelante.
     private val functions = FirebaseFunctions.getInstance()
 
     fun translateSpanishToEnglish(
         text: String,
         onResult: (String) -> Unit,
-        onError: (String) -> Unit
+        onError: (String) -> Unit,
+        ttsManager: TextToSpeechManager? = null
     ) {
         translateText(
             text = text,
             sourceLanguage = "es",
             targetLanguage = "en",
-            onResult = onResult,
+            onResult = { translated ->
+                ttsManager?.setLanguage(TextToSpeechManager.SupportedLanguage.ENGLISH)
+                onResult(translated)
+            },
             onError = onError
         )
     }
@@ -26,13 +30,17 @@ class TranslationManager {
     fun translateEnglishToSpanish(
         text: String,
         onResult: (String) -> Unit,
-        onError: (String) -> Unit
+        onError: (String) -> Unit,
+        ttsManager: TextToSpeechManager? = null
     ) {
         translateText(
             text = text,
             sourceLanguage = "en",
             targetLanguage = "es",
-            onResult = onResult,
+            onResult = { translated ->
+                ttsManager?.setLanguage(TextToSpeechManager.SupportedLanguage.SPANISH)
+                onResult(translated)
+            },
             onError = onError
         )
     }
