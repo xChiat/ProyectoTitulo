@@ -21,6 +21,13 @@
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
 
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="false" />
+
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Solo si más adelante montas un servicio en primer plano para TTS -->
@@ -33,13 +40,7 @@
         </intent>
     </queries>
 
-    <uses-permission
-        android:name="android.permission.BLUETOOTH_CONNECT" />
-
-    <uses-feature
-        android:name="android.hardware.bluetooth_le"
-        android:required="false" />
-
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"

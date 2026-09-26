@@ -70,6 +70,9 @@ dependencies {
     // Integración de ViewModel con Jetpack Compose
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
 
+    // ML KIT
+    implementation("com.google.mlkit:translate:17.0.3")
+
     // Material Design 3
     implementation("androidx.compose.material3:material3:1.4.0")
     implementation("androidx.compose.material3:material3-window-size-class:1.4.0")
