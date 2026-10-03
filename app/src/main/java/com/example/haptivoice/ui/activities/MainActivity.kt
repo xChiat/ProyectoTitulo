@@ -61,6 +61,7 @@ import com.example.haptivoice.ui.theme.pure_white
 import com.example.haptivoice.ui.theme.txt
 import com.example.haptivoice.utils.BluetoothManager
 import com.example.haptivoice.utils.SessionManager
+import com.example.haptivoice.utils.SubscriptionManager
 import com.example.haptivoice.utils.TextToSpeechManager
 import com.example.haptivoice.viewmodel.AuthViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -91,17 +92,22 @@ class MainActivity : ComponentActivity() {
         setContent {
             HaptivoiceTheme {
                 val context = LocalContext.current
-                // Manager Bluetooth compartido para la conexión con el ESP32
                 val bluetoothManager = remember { BluetoothManager(context.applicationContext) }
-
-                // Text to speech manager
                 val ttsManager = remember { TextToSpeechManager(context.applicationContext) }
+                val subscriptionManager = remember { SubscriptionManager(context.applicationContext) }
 
                 DisposableEffect(Unit) {
-                    onDispose { ttsManager.destroy() }
+                    subscriptionManager.start(
+                        onError = { msg ->
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                    onDispose {
+                        subscriptionManager.close()
+                        ttsManager.destroy()
+                    }
                 }
 
-                // Sesión
                 val authState by authViewModel.authState.collectAsState()
                 var hasOldSession by remember { mutableStateOf(initialSessionState) }
 
@@ -136,7 +142,6 @@ class MainActivity : ComponentActivity() {
                     else -> {}
                 }
 
-                // Si el usuario es nuevo, sobreescribimos la pantalla y mostramos el formulario
                 if (authState is AuthState.SuccessNewUser) {
                     val state = authState as AuthState.SuccessNewUser
                     DatosAdicionalesScreen(
@@ -151,13 +156,13 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else {
-                    // Si no es un usuario nuevo registrándose, mostramos el flujo normal (Home o Login Prompt)
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                         if (hasOldSession) {
                             HomeScreen(
                                 modifier = Modifier.padding(innerPadding),
                                 bluetoothManager = bluetoothManager,
                                 ttsManager = ttsManager,
+                                subscriptionManager = subscriptionManager,
                                 onLogout = {
                                     auth.signOut()
                                     sessionManager.clearSession()
@@ -203,7 +208,6 @@ fun AuthPromptScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Ícono de la app
         Icon(
             imageVector = Icons.Default.GraphicEq,
             contentDescription = "Logo",

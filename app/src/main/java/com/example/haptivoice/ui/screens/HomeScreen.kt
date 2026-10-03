@@ -1,5 +1,7 @@
 package com.example.haptivoice.ui.screens
 
+import android.app.Activity
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -36,6 +38,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
 import com.example.haptivoice.utils.BluetoothManager
+import com.example.haptivoice.utils.SubscriptionManager
 import com.example.haptivoice.utils.TextToSpeechManager
 
 @Composable
@@ -43,9 +46,11 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     bluetoothManager: BluetoothManager,
     ttsManager: TextToSpeechManager,
+    subscriptionManager: SubscriptionManager,
     onLogout: () -> Unit = {},
 ) {
     // Variables de estado
+    val context = LocalContext.current
     var isPaired by remember { mutableStateOf(false) }
     var connectedGlovesCount by remember { mutableIntStateOf(0) } // Variable adicional: 1 o 2
 
@@ -54,6 +59,8 @@ fun HomeScreen(
 
     // El mensaje ahora se actualiza desde BluetoothManager
     val esp32Message by bluetoothManager.incomingMessage.collectAsState()
+    val isPremium by subscriptionManager.isPremium.collectAsState()
+    val offers by subscriptionManager.offers.collectAsState()
 
     var selectedItem by remember { mutableIntStateOf(0) }
 
@@ -63,6 +70,11 @@ fun HomeScreen(
         Triple("Diccionario", Icons.AutoMirrored.Filled.MenuBook, 2),
         Triple("Ajustes", Icons.Default.Settings, 3)
     )
+
+    val monthlyPrice = offers
+        .firstOrNull { it.basePlanId == SubscriptionManager.BASE_PLAN_MONTHLY }
+        ?.formattedPrice
+        .orEmpty()
 
     // Si se activó la pantalla de Bluetooth, la mostramos y ocultamos el Scaffold principal
     if (showBluetoothScreen) {
@@ -103,6 +115,61 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.Bottom,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    OutlinedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 32.dp)
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = if (isPremium) "Premium activo" else "Plan gratuito",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (isPremium) {
+                                    "Traducción, gestos ilimitados y escritura a voz disponibles. Las voces cloud se activan cuando esté lista la API."
+                                } else {
+                                    "La voz del sistema sigue disponible. Premium desbloquea traducción, gestos ilimitados y escritura a voz."
+                                },
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            if (!isPremium) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = {
+                                        val activity = context as? Activity
+                                        if (activity == null) {
+                                            Toast.makeText(
+                                                context,
+                                                "No se pudo abrir el pago",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            return@Button
+                                        }
+                                        subscriptionManager.purchase(
+                                            activity = activity,
+                                            basePlanId = SubscriptionManager.BASE_PLAN_MONTHLY,
+                                            onError = { msg ->
+                                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = if (monthlyPrice.isBlank()) {
+                                            "suscribirse"
+                                        } else {
+                                            "suscribirse · $monthlyPrice"
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     if (!isPaired) {
                         Button(
                             onClick = { showBluetoothScreen = true },
@@ -176,10 +243,12 @@ fun HomeScreenPreview() {
         val context = LocalContext.current
         val bluetoothManager = remember { BluetoothManager(context.applicationContext) }
         val ttsManager = remember { TextToSpeechManager(context.applicationContext) }
+        val subscriptionManager = remember { SubscriptionManager(context.applicationContext) }
 
         HomeScreen(
             bluetoothManager = bluetoothManager,
-            ttsManager = ttsManager
+            ttsManager = ttsManager,
+            subscriptionManager = subscriptionManager
         )
     }
 }
