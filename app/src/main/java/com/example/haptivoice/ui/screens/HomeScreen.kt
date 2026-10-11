@@ -51,8 +51,10 @@ fun HomeScreen(
 ) {
     // Variables de estado
     val context = LocalContext.current
-    var isPaired by remember { mutableStateOf(false) }
-    var connectedGlovesCount by remember { mutableIntStateOf(0) } // Variable adicional: 1 o 2
+
+// Cantidad real de guantes conectados desde BluetoothManager
+    val connectedGlovesCount by
+    bluetoothManager.connectedGlovesCount.collectAsState()
 
     // Variables para la navegación y la tarjeta del ESP32
     var showBluetoothScreen by remember { mutableStateOf(false) }
@@ -80,9 +82,7 @@ fun HomeScreen(
     if (showBluetoothScreen) {
         BluetoothConnectScreen(
             bluetoothManager = bluetoothManager,
-            onNavigateBack = { count ->
-                connectedGlovesCount = count
-                isPaired = count > 0 // Si hay 1 o 2, isPaired es true. Si es 0, es false.
+            onNavigateBack = {
                 showBluetoothScreen = false // Volvemos al HomeScreen
             }
         )
@@ -107,7 +107,9 @@ fun HomeScreen(
         }
     ) { innerPadding ->
         when (selectedItem) {
+
             0 -> {
+
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -115,18 +117,31 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.Bottom,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+
                     OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 32.dp)
                             .padding(bottom = 16.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+
                             Text(
-                                text = if (isPremium) "Premium activo" else "Plan gratuito",
+                                text = if (isPremium) {
+                                    "Premium activo"
+                                } else {
+                                    "Plan gratuito"
+                                },
                                 style = MaterialTheme.typography.titleMedium
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Spacer(
+                                modifier = Modifier.height(4.dp)
+                            )
+
                             Text(
                                 text = if (isPremium) {
                                     "Traducción, gestos ilimitados y escritura a voz disponibles. Las voces cloud se activan cuando esté lista la API."
@@ -135,80 +150,135 @@ fun HomeScreen(
                                 },
                                 style = MaterialTheme.typography.bodySmall
                             )
+
                             if (!isPremium) {
-                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Spacer(
+                                    modifier = Modifier.height(12.dp)
+                                )
+
                                 Button(
                                     onClick = {
-                                        val activity = context as? Activity
+
+                                        val activity =
+                                            context as? Activity
+
                                         if (activity == null) {
+
                                             Toast.makeText(
                                                 context,
                                                 "No se pudo abrir el pago",
                                                 Toast.LENGTH_SHORT
                                             ).show()
+
                                             return@Button
                                         }
+
                                         subscriptionManager.purchase(
                                             activity = activity,
-                                            basePlanId = SubscriptionManager.BASE_PLAN_MONTHLY,
+                                            basePlanId =
+                                                SubscriptionManager.BASE_PLAN_MONTHLY,
                                             onError = { msg ->
-                                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+
+                                                Toast.makeText(
+                                                    context,
+                                                    msg,
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
                                             }
                                         )
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
+
                                     Text(
-                                        text = if (monthlyPrice.isBlank()) {
-                                            "suscribirse"
-                                        } else {
-                                            "suscribirse · $monthlyPrice"
-                                        }
+                                        text =
+                                            if (monthlyPrice.isBlank()) {
+                                                "suscribirse"
+                                            } else {
+                                                "suscribirse · $monthlyPrice"
+                                            }
                                     )
                                 }
                             }
                         }
                     }
 
-                    if (!isPaired) {
+                    // Mientras falte al menos un guante,
+                    // el botón para vincular seguirá disponible.
+                    if (
+                        connectedGlovesCount <
+                        BluetoothManager.MAX_CONNECTED_GLOVES
+                    ) {
+
                         Button(
-                            onClick = { showBluetoothScreen = true },
+                            onClick = {
+                                showBluetoothScreen = true
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 32.dp)
                                 .padding(bottom = 16.dp)
                         ) {
-                            Text(text = "Vincular Guantes")
-                        }
-                    } else {
-                        // Texto que muestra cuántos guantes se conectaron (usando la variable adicional)
-                        Text(
-                            text = "Guantes vinculados: $connectedGlovesCount",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
 
-                        // Tarjeta (Card) que recibirá el texto del ESP32
+                            Text(
+                                text =
+                                    if (connectedGlovesCount == 0) {
+                                        "Vincular Guantes"
+                                    } else {
+                                        "Vincular otro Guante"
+                                    }
+                            )
+                        }
+                    }
+
+                    // Si existe al menos un guante conectado,
+                    // mostramos su estado y los mensajes recibidos.
+                    if (connectedGlovesCount > 0) {
+
+                        Text(
+                            text =
+                                "Guantes vinculados: $connectedGlovesCount",
+                            style =
+                                MaterialTheme.typography.headlineSmall,
+                            color =
+                                MaterialTheme.colorScheme.primary
+                        )
+
+                        Spacer(
+                            modifier = Modifier.height(16.dp)
+                        )
+
                         OutlinedCard(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 32.dp)
                                 .padding(bottom = 32.dp)
                         ) {
+
                             Column(
                                 modifier = Modifier.padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                                horizontalAlignment =
+                                    Alignment.CenterHorizontally
                             ) {
+
                                 Text(
-                                    text = "Mensaje entrante del ESP32:",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    text =
+                                        "Mensaje entrante del ESP32:",
+                                    style =
+                                        MaterialTheme.typography.labelMedium,
+                                    color =
+                                        MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Spacer(
+                                    modifier = Modifier.height(8.dp)
+                                )
+
                                 Text(
                                     text = esp32Message,
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style =
+                                        MaterialTheme.typography.bodyLarge,
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -216,25 +286,35 @@ fun HomeScreen(
                     }
                 }
             }
+
             1 -> {
+
                 AyudasAuditivasScreen(
                     ttsManager = ttsManager,
-                    modifier = Modifier.padding(innerPadding)
+                    modifier =
+                        Modifier.padding(innerPadding)
                 )
             }
+
             2 -> {
-                DiccionarioScreen(modifier = Modifier.padding(innerPadding))
+
+                DiccionarioScreen(
+                    modifier =
+                        Modifier.padding(innerPadding)
+                )
             }
+
             3 -> {
+
                 AjustesScreen(
-                    modifier = Modifier.padding(innerPadding),
+                    modifier =
+                        Modifier.padding(innerPadding),
                     onLogout = onLogout
                 )
             }
         }
     }
 }
-
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenPreview() {

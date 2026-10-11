@@ -19,10 +19,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
+
 // =============================================================
 // DISPOSITIVO BLE
 // =============================================================
-
 data class BleDevice(
     val name: String,
     val address: String
@@ -55,10 +55,14 @@ class BluetoothManager(
          * Descriptor estándar de BLE utilizado
          * para activar las notificaciones.
          */
+
         val CLIENT_CHARACTERISTIC_CONFIG_UUID: UUID =
             UUID.fromString(
                 "00002902-0000-1000-8000-00805f9b34fb"
             )
+
+        // El sistema permite conectar como máximo dos guantes.
+        const val MAX_CONNECTED_GLOVES = 2
     }
 
     // =========================================================
@@ -77,17 +81,27 @@ class BluetoothManager(
     private val bluetoothLeScanner
         get() = bluetoothAdapter?.bluetoothLeScanner
 
-
     // =========================================================
-    // CONEXIÓN GATT
+    // CONEXIONES GATT
     // =========================================================
 
     /*
-     * Esta variable mantendrá la conexión
-     * activa con nuestro ESP32.
+     * Guardamos una conexión independiente por cada ESP32.
+     * La dirección Bluetooth identifica cada guante.
      */
-    private var bluetoothGatt: BluetoothGatt? = null
 
+    private val bluetoothGatts =
+        mutableMapOf<String, BluetoothGatt>()
+
+    /*
+     * Evita solicitar varias veces la conexión
+     * al mismo dispositivo mientras todavía está conectando.
+     */
+
+    private val pendingConnections =
+        mutableSetOf<String>()
+
+    private val connectionLock = Any()
 
     // =========================================================
     // ESTADOS PARA JETPACK COMPOSE
@@ -111,6 +125,28 @@ class BluetoothManager(
         _connectedGlovesCount.asStateFlow()
 
 
+    /*
+     * Direcciones Bluetooth de los guantes
+     * que están realmente conectados.
+     */
+
+    private val _connectedDeviceAddresses =
+        MutableStateFlow<Set<String>>(
+            emptySet()
+        )
+
+    val connectedDeviceAddresses:
+            StateFlow<Set<String>> =
+        _connectedDeviceAddresses.asStateFlow()
+
+    // Direcciones de los guantes silenciados.
+    private val _mutedDeviceAddresses =
+        MutableStateFlow<Set<String>>(emptySet())
+
+    val mutedDeviceAddresses: StateFlow<Set<String>> =
+        _mutedDeviceAddresses.asStateFlow()
+
+
     private val _incomingMessage =
         MutableStateFlow(
             "Esperando datos del ESP32..."
@@ -121,12 +157,76 @@ class BluetoothManager(
         _incomingMessage.asStateFlow()
 
     // =========================================================
+// SILENCIAR GUANTES
+// =========================================================
+
+    fun toggleMute(deviceAddress: String) {
+
+        synchronized(connectionLock) {
+
+            // Solo se puede mutear un guante conectado.
+            if (deviceAddress !in _connectedDeviceAddresses.value) {
+                return
+            }
+
+            val mutedAddresses =
+                _mutedDeviceAddresses.value.toMutableSet()
+
+            if (deviceAddress in mutedAddresses) {
+                mutedAddresses.remove(deviceAddress)
+            } else {
+                mutedAddresses.add(deviceAddress)
+            }
+
+            _mutedDeviceAddresses.value = mutedAddresses.toSet()
+        }
+    }
+
+    // Indica si se permite reproducir la voz de este guante.
+    fun shouldSpeakFromDevice(deviceAddress: String): Boolean {
+        return deviceAddress in _connectedDeviceAddresses.value &&
+                deviceAddress !in _mutedDeviceAddresses.value
+    }
+
+    // =========================================================
+    // ACTUALIZAR GUANTES CONECTADOS
+    // =========================================================
+
+    private fun updateConnectedDevice(
+        deviceAddress: String,
+        connected: Boolean
+    ) {
+
+        synchronized(connectionLock) {
+
+            val currentAddresses =
+                _connectedDeviceAddresses
+                    .value
+                    .toMutableSet()
+
+            if (connected) {
+                currentAddresses.add(deviceAddress)
+            } else {
+                currentAddresses.remove(deviceAddress)
+                // Al desconectar, eliminamos también su estado de muteo.
+                _mutedDeviceAddresses.value =
+                    _mutedDeviceAddresses.value - deviceAddress
+            }
+
+            _connectedDeviceAddresses.value =
+                currentAddresses.toSet()
+
+            _connectedGlovesCount.value =
+                currentAddresses.size
+        }
+    }
+
+    // =========================================================
     // ESCANEO BLE
     // =========================================================
 
     private val scanCallback =
         object : ScanCallback() {
-
 
             @SuppressLint("MissingPermission")
             override fun onScanResult(
@@ -139,19 +239,22 @@ class BluetoothManager(
                     result
                 )
 
-
                 val device =
                     result.device
 
-
                 val deviceName =
-                    device.name
-                        ?: "Dispositivo BLE sin nombre"
+                    result.scanRecord?.deviceName
+                        ?: device.name
+                        ?: return
+
+                // Solo mostramos dispositivos que tengan un nombre válido.
+                if (deviceName.isBlank()){
+                    return
+                }
 
 
                 val deviceAddress =
                     device.address
-
 
                 val newDevice =
                     BleDevice(
@@ -164,11 +267,11 @@ class BluetoothManager(
                         .value
                         .toMutableList()
 
-
                 /*
                  * Evitamos que un mismo dispositivo
                  * aparezca muchas veces.
                  */
+
                 val alreadyExists =
                     currentDevices.any {
                         it.address ==
@@ -223,13 +326,27 @@ class BluetoothManager(
                     newState
                 )
 
+                val deviceAddress =
+                    gatt.device.address
 
                 if (
                     newState ==
                     BluetoothProfile.STATE_CONNECTED
                 ) {
 
-                    _connectedGlovesCount.value = 1
+                    synchronized(connectionLock) {
+                        pendingConnections.remove(
+                            deviceAddress
+                        )
+
+                        bluetoothGatts[deviceAddress] =
+                            gatt
+                    }
+
+                    updateConnectedDevice(
+                        deviceAddress = deviceAddress,
+                        connected = true
+                    )
 
                     _incomingMessage.value =
                         "ESP32 conectado. Buscando servicios..."
@@ -239,26 +356,53 @@ class BluetoothManager(
                      * buscamos los servicios BLE
                      * disponibles en el ESP32.
                      */
+
                     gatt.discoverServices()
 
+                    /*
+                     * Si ya tenemos los dos guantes,
+                     * no necesitamos continuar escaneando.
+                     */
+
+                    if (
+                        _connectedGlovesCount.value >=
+                        MAX_CONNECTED_GLOVES
+                    ) {
+                        stopScan()
+                    }
 
                 } else if (
                     newState ==
                     BluetoothProfile.STATE_DISCONNECTED
                 ) {
 
-                    _connectedGlovesCount.value = 0
+                    synchronized(connectionLock) {
 
-                    _incomingMessage.value =
-                        "ESP32 desconectado."
+                        pendingConnections.remove(
+                            deviceAddress
+                        )
+
+                        bluetoothGatts.remove(
+                            deviceAddress
+                        )
+                    }
+
+                    updateConnectedDevice(
+                        deviceAddress = deviceAddress,
+                        connected = false
+                    )
 
                     gatt.close()
 
+                    if (_connectedGlovesCount.value == 0) {
 
-                    if (
-                        bluetoothGatt === gatt
-                    ) {
-                        bluetoothGatt = null
+                        _incomingMessage.value =
+                            "ESP32 desconectado."
+
+                    } else {
+
+                        _incomingMessage.value =
+                            "Guantes conectados: ${_connectedGlovesCount.value}"
                     }
                 }
             }
@@ -279,7 +423,8 @@ class BluetoothManager(
                 )
 
                 if (
-                    status != BluetoothGatt.GATT_SUCCESS
+                    status !=
+                    BluetoothGatt.GATT_SUCCESS
                 ) {
 
                     _incomingMessage.value =
@@ -292,6 +437,7 @@ class BluetoothManager(
                  * Buscamos el mismo SERVICE_UUID
                  * que configuramos en el ESP32.
                  */
+
                 val service =
                     gatt.getService(
                         SERVICE_UUID
@@ -309,11 +455,11 @@ class BluetoothManager(
                  * Dentro del servicio buscamos
                  * nuestra característica.
                  */
+
                 val characteristic =
                     service.getCharacteristic(
                         CHARACTERISTIC_UUID
                     )
-
 
                 if (characteristic == null) {
 
@@ -327,6 +473,7 @@ class BluetoothManager(
                  * Android comienza a escuchar
                  * las notificaciones de esta característica.
                  */
+
                 val notificationEnabled =
                     gatt.setCharacteristicNotification(
                         characteristic,
@@ -346,11 +493,11 @@ class BluetoothManager(
                  * exactamente lo que hicimos manualmente
                  * en nRF Connect al activar Notify.
                  */
+
                 val descriptor =
                     characteristic.getDescriptor(
                         CLIENT_CHARACTERISTIC_CONFIG_UUID
                     )
-
 
                 if (descriptor == null) {
 
@@ -372,8 +519,7 @@ class BluetoothManager(
 
             override fun onCharacteristicChanged(
                 gatt: BluetoothGatt,
-                characteristic:
-                BluetoothGattCharacteristic,
+                characteristic: BluetoothGattCharacteristic,
                 value: ByteArray
             ) {
 
@@ -397,13 +543,13 @@ class BluetoothManager(
             // -------------------------------------------------
             // MENSAJE RECIBIDO - ANDROID ANTIGUO
             // -------------------------------------------------
+
             @Deprecated(
                 "Usado para compatibilidad con versiones antiguas de Android"
             )
             override fun onCharacteristicChanged(
                 gatt: BluetoothGatt,
-                characteristic:
-                BluetoothGattCharacteristic
+                characteristic: BluetoothGattCharacteristic
             ) {
 
                 super.onCharacteristicChanged(
@@ -411,16 +557,15 @@ class BluetoothManager(
                     characteristic
                 )
 
-
                 if (
                     characteristic.uuid ==
                     CHARACTERISTIC_UUID
                 ) {
 
+                    @Suppress("DEPRECATION")
                     val value =
                         characteristic.value
                             ?: return
-
 
                     handleIncomingMessage(
                         value
@@ -432,6 +577,7 @@ class BluetoothManager(
     // =========================================================
     // PROCESAR MENSAJE DEL ESP32
     // =========================================================
+
     private fun handleIncomingMessage(
         data: ByteArray
     ) {
@@ -447,7 +593,6 @@ class BluetoothManager(
             data.toString(
                 Charsets.UTF_8
             )
-
 
         _incomingMessage.value =
             message
@@ -484,15 +629,17 @@ class BluetoothManager(
             /*
              * Para Android 12 o anteriores.
              */
-            @Suppress("DEPRECATION")
-            descriptor.value =
-                BluetoothGattDescriptor
-                    .ENABLE_NOTIFICATION_VALUE
 
             @Suppress("DEPRECATION")
-            gatt.writeDescriptor(
-                descriptor
-            )
+            run {
+                descriptor.value =
+                    BluetoothGattDescriptor
+                        .ENABLE_NOTIFICATION_VALUE
+
+                gatt.writeDescriptor(
+                    descriptor
+                )
+            }
         }
 
         _incomingMessage.value =
@@ -522,6 +669,7 @@ class BluetoothManager(
     // =========================================================
     // PERMISOS
     // =========================================================
+
     fun hasScanPermission(): Boolean {
 
         return if (
@@ -579,8 +727,8 @@ class BluetoothManager(
             return
         }
 
-        // Usamos una referencia local porque bluetoothAdapter es una propiedad lazy.
-        val adapter = bluetoothAdapter
+        val adapter =
+            bluetoothAdapter
 
         if (adapter == null) {
 
@@ -597,13 +745,17 @@ class BluetoothManager(
 
             return
         }
+
         /*
          * Limpiamos dispositivos antiguos
          * antes de volver a buscar.
          */
-        _scannedDevices.value =
-            emptyList()
 
+        // Conservamos los dispositivos conectados al iniciar otro escaneo.
+        _scannedDevices.value =
+            _scannedDevices.value.filter { device ->
+                device.address in _connectedDeviceAddresses.value
+            }
 
         bluetoothLeScanner
             ?.startScan(
@@ -645,23 +797,66 @@ class BluetoothManager(
             return
         }
 
+        if (
+            _connectedDeviceAddresses
+                .value
+                .contains(deviceAddress)
+        ) {
 
-        // Usamos una referencia local porque bluetoothAdapter es una propiedad lazy.
-        val adapter = bluetoothAdapter
+            _incomingMessage.value =
+                "Este guante ya está conectado."
+
+            return
+        }
+
+        val pendingCount =
+            synchronized(connectionLock) {
+                pendingConnections.size
+            }
+
+        if (
+            _connectedGlovesCount.value +
+            pendingCount >=
+            MAX_CONNECTED_GLOVES
+        ) {
+
+            _incomingMessage.value =
+                "Ya hay dos guantes conectados."
+
+            return
+        }
+
+        val addedToPending =
+            synchronized(connectionLock) {
+                pendingConnections.add(
+                    deviceAddress
+                )
+            }
+
+        if (!addedToPending) {
+
+            _incomingMessage.value =
+                "Este guante ya se está conectando."
+
+            return
+        }
+
+        val adapter =
+            bluetoothAdapter
 
         if (adapter == null) {
+
+            synchronized(connectionLock) {
+                pendingConnections.remove(
+                    deviceAddress
+                )
+            }
 
             _incomingMessage.value =
                 "Bluetooth no disponible."
 
             return
         }
-        /*
-         * Dejamos de buscar porque ya
-         * seleccionamos el dispositivo.
-         */
-        stopScan()
-
 
         try {
 
@@ -669,21 +864,21 @@ class BluetoothManager(
              * Obtenemos el dispositivo mediante
              * su dirección Bluetooth.
              */
-            val device =
-                adapter
-                    .getRemoteDevice(
-                        deviceAddress
-                    )
 
+            val device =
+                adapter.getRemoteDevice(
+                    deviceAddress
+                )
 
             _incomingMessage.value =
                 "Conectando con ${device.name ?: "ESP32"}..."
 
-
             /*
-             * Aquí ocurre la conexión BLE real.
+             * Cada guante mantiene su propia
+             * conexión GATT.
              */
-            bluetoothGatt =
+
+            val gatt =
                 device.connectGatt(
                     context,
                     false,
@@ -691,10 +886,20 @@ class BluetoothManager(
                     BluetoothDevice.TRANSPORT_LE
                 )
 
+            synchronized(connectionLock) {
+                bluetoothGatts[deviceAddress] =
+                    gatt
+            }
 
         } catch (
             exception: IllegalArgumentException
         ) {
+
+            synchronized(connectionLock) {
+                pendingConnections.remove(
+                    deviceAddress
+                )
+            }
 
             _incomingMessage.value =
                 "Dirección Bluetooth inválida."
@@ -714,8 +919,20 @@ class BluetoothManager(
             return
         }
 
+        val gatt =
+            synchronized(connectionLock) {
+                bluetoothGatts[deviceAddress]
+            }
 
-        bluetoothGatt?.disconnect()
+        if (gatt == null) {
+
+            _incomingMessage.value =
+                "El guante seleccionado no está conectado."
+
+            return
+        }
+
+        gatt.disconnect()
     }
 
     // =========================================================
@@ -737,9 +954,11 @@ class BluetoothManager(
          * Android -> ESP32 si fuera necesario.
          */
     }
+
     // =========================================================
     // SIMULACIÓN
     // =========================================================
+
     fun simulateIncomingMessage(
         message: String
     ) {
