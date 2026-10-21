@@ -1,3 +1,4 @@
+
 package com.example.haptivoice.ui.screens
 
 import android.app.Activity
@@ -52,7 +53,7 @@ fun HomeScreen(
     // Variables de estado
     val context = LocalContext.current
 
-// Cantidad real de guantes conectados desde BluetoothManager
+    // Cantidad real de guantes conectados desde BluetoothManager
     val connectedGlovesCount by
     bluetoothManager.connectedGlovesCount.collectAsState()
 
@@ -61,7 +62,18 @@ fun HomeScreen(
 
     // El mensaje ahora se actualiza desde BluetoothManager
     val esp32Message by bluetoothManager.incomingMessage.collectAsState()
+
+    // =========================================================
+    // ESTADO DE GOOGLE PLAY BILLING Y PREMIUM
+    // =========================================================
+
+    // Estado actual de la suscripción.
     val isPremium by subscriptionManager.isPremium.collectAsState()
+
+    // Verificamos si Google Play Billing está conectado.
+    val billingReady by subscriptionManager.billingReady.collectAsState()
+
+    // Ofertas reales obtenidas desde Google Play.
     val offers by subscriptionManager.offers.collectAsState()
 
     var selectedItem by remember { mutableIntStateOf(0) }
@@ -73,10 +85,31 @@ fun HomeScreen(
         Triple("Ajustes", Icons.Default.Settings, 3)
     )
 
-    val monthlyPrice = offers
-        .firstOrNull { it.basePlanId == SubscriptionManager.BASE_PLAN_MONTHLY }
-        ?.formattedPrice
-        .orEmpty()
+    // =========================================================
+    // PLAN MENSUAL PREMIUM
+    // =========================================================
+
+    /*
+     * El plan debe existir en Google Play Console con:
+     *
+     * ID de suscripción: haptivoice_premium
+     * ID del plan base: monthly
+     *
+     * Mientras no exista o no esté disponible, el botón
+     * de suscripción permanecerá deshabilitado.
+     */
+
+    val monthlyOffer = offers.firstOrNull {
+        it.basePlanId == SubscriptionManager.BASE_PLAN_MONTHLY
+    }
+
+    // Precio real entregado por Google Play.
+    val monthlyPrice = monthlyOffer?.formattedPrice.orEmpty()
+
+    // Solo se permite intentar la compra si Billing está listo
+    // y Google Play devolvió el plan mensual solicitado.
+    val canPurchasePremium =
+        billingReady && monthlyOffer != null && !isPremium
 
     // Si se activó la pantalla de Bluetooth, la mostramos y ocultamos el Scaffold principal
     if (showBluetoothScreen) {
@@ -100,7 +133,12 @@ fun HomeScreen(
                         selected = selectedItem == index,
                         onClick = { selectedItem = index },
                         label = { Text(text = label) },
-                        icon = { Icon(imageVector = icon, contentDescription = label) }
+                        icon = {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = label
+                            )
+                        }
                     )
                 }
             }
@@ -117,6 +155,10 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.Bottom,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+
+                    // =========================================================
+                    // TARJETA DE SUSCRIPCIÓN PREMIUM
+                    // =========================================================
 
                     OutlinedCard(
                         modifier = Modifier
@@ -157,6 +199,20 @@ fun HomeScreen(
                                     modifier = Modifier.height(12.dp)
                                 )
 
+                                // =========================================
+                                // BOTÓN SUSCRIBIRSE
+                                // =========================================
+
+                                /*
+                                 * Solo se habilita cuando Google Play Billing
+                                 * está conectado y el plan monthly está
+                                 * disponible en Play Console.
+                                 *
+                                 * No se activa Premium manualmente.
+                                 * El resultado de la compra será procesado
+                                 * por SubscriptionManager.
+                                 */
+
                                 Button(
                                     onClick = {
 
@@ -188,16 +244,60 @@ fun HomeScreen(
                                             }
                                         )
                                     },
+
+                                    enabled = canPurchasePremium,
+
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
 
                                     Text(
-                                        text =
-                                            if (monthlyPrice.isBlank()) {
-                                                "suscribirse"
-                                            } else {
-                                                "suscribirse · $monthlyPrice"
+                                        text = when {
+
+                                            !billingReady -> {
+                                                "Conectando con Google Play..."
                                             }
+
+                                            monthlyOffer == null -> {
+                                                "Premium no disponible"
+                                            }
+
+                                            monthlyPrice.isBlank() -> {
+                                                "Suscribirse"
+                                            }
+
+                                            else -> {
+                                                "Suscribirse · $monthlyPrice"
+                                            }
+                                        }
+                                    )
+                                }
+
+                                // =========================================
+                                // MENSAJE DE DISPONIBILIDAD
+                                // =========================================
+
+                                /*
+                                 * Mientras no se configure la cuenta
+                                 * de comerciante y el producto Premium
+                                 * en Google Play Console, se informa
+                                 * que la suscripción no está disponible.
+                                 */
+
+                                if (!canPurchasePremium) {
+
+                                    Spacer(
+                                        modifier = Modifier.height(8.dp)
+                                    )
+
+                                    Text(
+                                        text = if (!billingReady) {
+                                            "Google Play Billing todavía no está conectado."
+                                        } else {
+                                            "El plan mensual Premium todavía no está disponible en Google Play."
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color =
+                                            MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -315,15 +415,22 @@ fun HomeScreen(
         }
     }
 }
+
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenPreview() {
     HaptivoiceTheme {
         // Manager usado solo para mostrar el Preview
         val context = LocalContext.current
-        val bluetoothManager = remember { BluetoothManager(context.applicationContext) }
-        val ttsManager = remember { TextToSpeechManager(context.applicationContext) }
-        val subscriptionManager = remember { SubscriptionManager(context.applicationContext) }
+        val bluetoothManager = remember {
+            BluetoothManager(context.applicationContext)
+        }
+        val ttsManager = remember {
+            TextToSpeechManager(context.applicationContext)
+        }
+        val subscriptionManager = remember {
+            SubscriptionManager(context.applicationContext)
+        }
 
         HomeScreen(
             bluetoothManager = bluetoothManager,

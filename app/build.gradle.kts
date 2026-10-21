@@ -11,7 +11,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.haptivoice"
+        applicationId = "cl.h1p0c.haptivoice"
         minSdk = 24
         targetSdk = 37
         versionCode = 1

@@ -7,6 +7,51 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:104696983752:android:85ff700a1f56dab3d9f5fd",
+        "android_client_info": {
+          "package_name": "cl.h1p0c.haptivoice"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "104696983752-1vka4iue4t8kvscqni81th8p7c62h6ht.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "cl.h1p0c.haptivoice",
+            "certificate_hash": "8deababdfcc500425e52bf387871066b0980df58"
+          }
+        },
+        {
+          "client_id": "104696983752-ds4v64hhu4miou3488e3pu923cn0fhu2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "cl.h1p0c.haptivoice",
+            "certificate_hash": "a31986de00b54f935f6413c48c1edb55085048ff"
+          }
+        },
+        {
+          "client_id": "104696983752-f7ra57005ar73oh0sf2nfpi8ved84dt4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCS3n1FHtMSJVfi95s_1OYnrEue58vcqnA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "104696983752-f7ra57005ar73oh0sf2nfpi8ved84dt4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:104696983752:android:901bdb7eb700bc50d9f5fd",
         "android_client_info": {
           "package_name": "com.example.haptivoice"
