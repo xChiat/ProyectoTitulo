@@ -1,6 +1,9 @@
+
 package com.example.haptivoice.ui.screens
 
 import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -59,6 +62,7 @@ import com.example.haptivoice.ui.activities.RecoveryActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.haptivoice.viewmodel.ProfileUiState
 import com.example.haptivoice.viewmodel.ProfileViewModel
+import com.example.haptivoice.utils.SubscriptionManager
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,11 +70,25 @@ import com.example.haptivoice.viewmodel.ProfileViewModel
 fun AjustesScreen(
     modifier: Modifier = Modifier,
     profileViewModel: ProfileViewModel = viewModel(),
+    subscriptionManager: SubscriptionManager,
     onLogout: () -> Unit = {}
 ) {
     val uiState by profileViewModel.uiState.collectAsState()
 
     val context = LocalContext.current
+
+    // Compartimos el estado de Google Play Billing con HomeScreen.
+    val isPremium by subscriptionManager.isPremium.collectAsState()
+
+    // Al entrar a Ajustes, consultamos nuevamente el estado en Google Play.
+    // No modifica los pagos ni activa Premium manualmente.
+    LaunchedEffect(subscriptionManager) {
+        subscriptionManager.refresh(
+            onError = { message ->
+                Log.w("AjustesScreen", "Consulta Premium: $message")
+            }
+        )
+    }
 
     //confirmación antes de eliminar la cuenta
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -303,10 +321,17 @@ fun AjustesScreen(
             }
         }
 
+        // ==========================================
+        // PLAN ACTUAL SEGÚN GOOGLE PLAY BILLING
+        // ==========================================
         SettingsItem(
             icon = Icons.Default.Star,
             title = "Plan actual",
-            subtitle = "Básico (Free-Tier)"
+            subtitle = if (isPremium) {
+                "HaptiVoice Premium (Activo)"
+            } else {
+                "Básico (Free-Tier)"
+            }
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -316,10 +341,43 @@ fun AjustesScreen(
         // ==========================================
         SectionTitle(title = "Facturación")
 
+        // Abrimos la gestión oficial de suscripciones de Google Play.
+        // Si Premium está activo, mostramos directamente HaptiVoice Premium.
+        // En caso contrario, mostramos el centro general de suscripciones.
         SettingsItem(
             icon = Icons.Default.CreditCard,
             title = "Administrar suscripción",
-            subtitle = "Actualiza tu plan de pago (Próximamente)"
+            subtitle = if (isPremium) {
+                "Gestionar o cancelar HaptiVoice Premium en Google Play"
+            } else {
+                "Ver suscripciones en Google Play"
+            },
+            onClick = {
+                val url = if (isPremium) {
+                    "https://play.google.com/store/account/subscriptions" +
+                            "?sku=${SubscriptionManager.PREMIUM_PRODUCT_ID}" +
+                            "&package=${context.packageName}"
+                } else {
+                    "https://play.google.com/store/account/subscriptions"
+                }
+
+                try {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    )
+                } catch (exception: Exception) {
+                    Log.e(
+                        "AjustesScreen",
+                        "No se pudo abrir Google Play",
+                        exception
+                    )
+                    android.widget.Toast.makeText(
+                        context,
+                        "No se pudo abrir la gestión de suscripciones",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))

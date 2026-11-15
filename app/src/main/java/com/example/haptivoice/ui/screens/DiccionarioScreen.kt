@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -33,6 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -45,15 +47,53 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
+import com.example.haptivoice.utils.SubscriptionManager
 
 @Composable
-fun DiccionarioScreen(modifier: Modifier = Modifier) {
+fun DiccionarioScreen(
+    modifier: Modifier = Modifier,
+    isPremium: Boolean = false,
+
+    // Cantidad real de gestos guardados.
+    // null significa que el almacenamiento aun no esta integrado.
+    savedGestureCount: Int? = null
+) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("LSCH", "Mis Gestos")
 
     // Mock data x mientras
     val lschList = listOf("Hola", "Gracias", "Por favor", "Permiso", "Disculpa")
     val misGestosList = listOf("Gesto personalizado 1", "Mi saludo", "Ayuda urgente")
+
+    // =============================================================
+    // CONTROL DE BENEFICIOS PREMIUM
+    // =============================================================
+
+    /*
+     * El plan gratuito permite hasta 3 gestos personalizados.
+     * El plan Premium permite gestos ilimitados.
+     *
+     * Los datos de ejemplo de misGestosList NO se cuentan
+     * como gestos realmente guardados.
+     *
+     * Cuando se implemente el almacenamiento de gestos,
+     * HomeScreen debera entregar savedGestureCount con la
+     * cantidad real asociada a la cuenta del usuario.
+     *
+     * Esta validacion de interfaz debera repetirse en el
+     * servicio responsable de guardar el gesto.
+     */
+
+    val freeGestureLimit = SubscriptionManager.FREE_GESTURE_LIMIT
+
+    val freeLimitReached =
+        !isPremium &&
+                savedGestureCount != null &&
+                savedGestureCount >= freeGestureLimit
+
+    var showFreeLimitDialog by remember {
+        mutableStateOf(false)
+    }
 
     // Control de la pantalla para agregar gestos.
     var showAddGestureScreen by remember { mutableStateOf(false) }
@@ -62,6 +102,7 @@ fun DiccionarioScreen(modifier: Modifier = Modifier) {
 
         AgregarGestoScreen(
             modifier = modifier,
+            isPremium = isPremium,
             onNavigateBack = {
                 showAddGestureScreen = false
             }
@@ -76,11 +117,26 @@ fun DiccionarioScreen(modifier: Modifier = Modifier) {
                 if (selectedTabIndex == 1) {
                     ExtendedFloatingActionButton(
                         onClick = {
-                            showAddGestureScreen = true
+
+                            // Solo bloqueamos si conocemos la cantidad
+                            // REAL de gestos guardados.
+                            if (freeLimitReached) {
+                                showFreeLimitDialog = true
+                            } else {
+                                showAddGestureScreen = true
+                            }
+
                             /* TODO: Lógica para agregar gesto */
                         },
-                        icon = { Icon(Icons.Default.Add, contentDescription = "Agregar gesto") },
-                        text = { Text("Agregar gestos") },
+                        icon = {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Agregar gesto"
+                            )
+                        },
+                        text = {
+                            Text("Agregar gestos")
+                        },
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -94,21 +150,94 @@ fun DiccionarioScreen(modifier: Modifier = Modifier) {
             ) {
                 Text(
                     text = "Diccionario de gestos",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.padding(
+                        horizontal = 16.dp,
+                        vertical = 16.dp
+                    )
                 )
 
                 TabRow(selectedTabIndex = selectedTabIndex) {
                     tabs.forEachIndexed { index, title ->
                         Tab(
                             selected = selectedTabIndex == index,
-                            onClick = { selectedTabIndex = index },
+                            onClick = {
+                                selectedTabIndex = index
+                            },
                             text = {
                                 Text(
                                     text = title,
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }
+                        )
+                    }
+                }
+
+                // =====================================================
+                // INFORMACION DEL PLAN ACTUAL
+                // =====================================================
+
+                if (selectedTabIndex == 1) {
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                horizontal = 16.dp,
+                                vertical = 12.dp
+                            )
+                    ) {
+
+                        Text(
+                            text = if (isPremium) {
+                                "HaptiVoice Premium activo"
+                            } else {
+                                "Plan gratuito"
+                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(
+                            modifier = Modifier.height(4.dp)
+                        )
+
+                        Text(
+                            text = when {
+
+                                isPremium -> {
+                                    "Tu plan permite gestos personalizados ilimitados."
+                                }
+
+                                savedGestureCount != null -> {
+                                    "Gestos guardados: " +
+                                            "${savedGestureCount.coerceAtLeast(0)} " +
+                                            "de $freeGestureLimit disponibles."
+                                }
+
+                                else -> {
+                                    "El plan gratuito permite hasta " +
+                                            "$freeGestureLimit gestos personalizados."
+                                }
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(
+                            modifier = Modifier.height(4.dp)
+                        )
+
+                        Text(
+                            text = "Los gestos mostrados actualmente son " +
+                                    "ejemplos. El almacenamiento real " +
+                                    "se integrará junto con la captura.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -122,19 +251,67 @@ fun DiccionarioScreen(modifier: Modifier = Modifier) {
                         bottom = 88.dp
                     )
                 ) {
-                    val currentList = if (selectedTabIndex == 0) lschList else misGestosList
+                    val currentList =
+                        if (selectedTabIndex == 0) {
+                            lschList
+                        } else {
+                            misGestosList
+                        }
 
                     items(currentList) { word ->
                         DiccionarioItem(
                             word = word,
-                            onListen = { /* TODO: Acción de escuchar */ },
-                            onEdit = { /* TODO: Acción de editar */ },
-                            onReset = { /* TODO: Acción de restablecer */ }
+                            onListen = {
+                                /* TODO: Acción de escuchar */
+                            },
+                            onEdit = {
+                                /* TODO: Acción de editar */
+                            },
+                            onReset = {
+                                /* TODO: Acción de restablecer */
+                            }
                         )
                     }
                 }
             }
         }
+    }
+
+    // =============================================================
+    // AVISO DEL LIMITE DE GESTOS GRATUITOS
+    // =============================================================
+
+    if (showFreeLimitDialog) {
+
+        AlertDialog(
+            onDismissRequest = {
+                showFreeLimitDialog = false
+            },
+
+            title = {
+                Text("Límite de gestos alcanzado")
+            },
+
+            text = {
+                Text(
+                    "El plan gratuito permite guardar hasta " +
+                            "$freeGestureLimit gestos personalizados.\n\n" +
+                            "Con HaptiVoice Premium podrás agregar " +
+                            "gestos ilimitados cuando la función " +
+                            "de captura esté disponible."
+                )
+            },
+
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showFreeLimitDialog = false
+                    }
+                ) {
+                    Text("Entendido")
+                }
+            }
+        )
     }
 }
 
@@ -203,7 +380,8 @@ fun DiccionarioItem(
 @Composable
 fun AgregarGestoScreen(
     modifier: Modifier = Modifier,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    isPremium: Boolean = false
 ) {
 
     var gestureName by remember { mutableStateOf("") }
@@ -237,6 +415,23 @@ fun AgregarGestoScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        // =====================================================
+        // INFORMACION PREMIUM EN EL FORMULARIO
+        // =====================================================
+
+        Text(
+            text = if (isPremium) {
+                "Plan Premium: gestos ilimitados"
+            } else {
+                "Plan gratuito: máximo " +
+                        "${SubscriptionManager.FREE_GESTURE_LIMIT} gestos"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Datos del nuevo gesto.
         Text(
@@ -351,6 +546,17 @@ fun AgregarGestoScreen(
         Button(
             onClick = {
                 // Pendiente: guardar el gesto.
+
+                /*
+                 * Al implementar el guardado:
+                 * 1. Consultar los gestos reales del usuario.
+                 * 2. Verificar el limite del plan gratuito.
+                 * 3. Guardar el gesto y la captura.
+                 * 4. Actualizar la cantidad de gestos.
+                 *
+                 * La comprobacion no debe depender
+                 * solamente de la interfaz.
+                 */
             },
             enabled = false,
             modifier = Modifier.fillMaxWidth()
@@ -370,9 +576,11 @@ fun AgregarGestoScreen(
 
 @Preview(showBackground = true)
 @Composable
-fun DiccionarioScreenPreview(){
+fun DiccionarioScreenPreview() {
     HaptivoiceTheme {
-        DiccionarioScreen()
+        DiccionarioScreen(
+            isPremium = false
+        )
     }
 }
 

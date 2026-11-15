@@ -397,10 +397,9 @@ fun HomeScreen(
             }
 
             2 -> {
-
                 DiccionarioScreen(
-                    modifier =
-                        Modifier.padding(innerPadding)
+                    modifier = Modifier.padding(innerPadding),
+                    isPremium = isPremium
                 )
             }
 
@@ -409,6 +408,7 @@ fun HomeScreen(
                 AjustesScreen(
                     modifier =
                         Modifier.padding(innerPadding),
+                    subscriptionManager = subscriptionManager,
                     onLogout = onLogout
                 )
             }
