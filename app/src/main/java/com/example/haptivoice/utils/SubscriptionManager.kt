@@ -18,6 +18,8 @@ import com.android.billingclient.api.QueryPurchasesParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.google.firebase.auth.FirebaseAuth
+import java.security.MessageDigest
 
 /**
  * Un solo plan premium (haptivoice_premium).
@@ -55,6 +57,20 @@ class SubscriptionManager(
      */
     private val _isPremium = MutableStateFlow(false)
     val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
+
+    /*
+     * Token de la compra Premium actual.
+     *
+     * Solo se conserva en memoria.
+     * Nunca debe incluirse en Logcat ni compartirse
+     * con servicios distintos del backend autorizado.
+     *
+     * El backend verificará este token con Google Play.
+     */
+    private val _purchaseToken = MutableStateFlow<String?>(null)
+
+    val purchaseToken: StateFlow<String?> =
+        _purchaseToken.asStateFlow()
 
     private val _billingReady = MutableStateFlow(false)
     val billingReady: StateFlow<Boolean> = _billingReady.asStateFlow()
@@ -281,6 +297,32 @@ class SubscriptionManager(
         )
     }
 
+
+// =========================================================
+// IDENTIFICADOR SEGURO PARA GOOGLE PLAY
+// =========================================================
+
+    /*
+     * Asociamos las compras nuevas con el UID de Firebase.
+     *
+     * No enviamos el correo ni datos personales en texto claro.
+     * El backend debe calcular el mismo SHA-256 para verificar
+     * que la compra corresponde a la cuenta autenticada.
+     */
+    private fun getObfuscatedAccountId(): String? {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: return null
+
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(uid.toByteArray(Charsets.UTF_8))
+
+        return digest.joinToString("") { byte ->
+            (byte.toInt() and 0xff)
+                .toString(16)
+                .padStart(2, '0')
+        }
+    }
+
     // =========================================================
     // COMPRAR SUSCRIPCIÓN PREMIUM
     // =========================================================
@@ -349,11 +391,22 @@ class SubscriptionManager(
                 .setOfferToken(offer.offerToken)
                 .build()
 
+
+        val obfuscatedAccountId = getObfuscatedAccountId()
+
+        if (obfuscatedAccountId == null) {
+            onError(
+                "Debes iniciar sesión en HaptiVoice para comprar Premium."
+            )
+            return
+        }
+
         val flowParams =
             BillingFlowParams.newBuilder()
                 .setProductDetailsParamsList(
                     listOf(productDetailsParams)
                 )
+                .setObfuscatedAccountId(obfuscatedAccountId)
                 .build()
 
         val result = billingClient.launchBillingFlow(
@@ -389,6 +442,8 @@ class SubscriptionManager(
     // =========================================================
 
     fun close() {
+
+        _purchaseToken.value = null
 
         if (isClosed) {
             return
@@ -623,7 +678,12 @@ class SubscriptionManager(
          * No usar este resultado local como validación definitiva
          * para cobros reales.
          */
-        val active = completedPurchases.isNotEmpty()
+
+        val activePurchase = completedPurchases.firstOrNull()
+
+        val active = activePurchase != null
+
+        _purchaseToken.value = activePurchase?.purchaseToken
 
         setPremium(active)
 

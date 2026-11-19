@@ -3,8 +3,10 @@ package com.example.haptivoice.ui.screens
 
 import android.app.Activity
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +44,8 @@ import com.example.haptivoice.ui.theme.HaptivoiceTheme
 import com.example.haptivoice.utils.BluetoothManager
 import com.example.haptivoice.utils.SubscriptionManager
 import com.example.haptivoice.utils.TextToSpeechManager
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @Composable
 fun HomeScreen(
@@ -58,7 +63,9 @@ fun HomeScreen(
     bluetoothManager.connectedGlovesCount.collectAsState()
 
     // Variables para la navegación y la tarjeta del ESP32
-    var showBluetoothScreen by remember { mutableStateOf(false) }
+    var showBluetoothScreen by remember {
+        mutableStateOf(false)
+    }
 
     // El mensaje ahora se actualiza desde BluetoothManager
     val esp32Message by bluetoothManager.incomingMessage.collectAsState()
@@ -76,7 +83,9 @@ fun HomeScreen(
     // Ofertas reales obtenidas desde Google Play.
     val offers by subscriptionManager.offers.collectAsState()
 
-    var selectedItem by remember { mutableIntStateOf(0) }
+    var selectedItem by remember {
+        mutableIntStateOf(0)
+    }
 
     val navItems = listOf(
         Triple("Home", Icons.Default.Home, 0),
@@ -86,32 +95,79 @@ fun HomeScreen(
     )
 
     // =========================================================
-    // PLAN MENSUAL PREMIUM
+    // PLANES PREMIUM MENSUAL Y ANUAL
     // =========================================================
 
     /*
-     * El plan debe existir en Google Play Console con:
+     * Ambos planes pertenecen a una sola suscripción:
      *
      * ID de suscripción: haptivoice_premium
+     *
+     * Plan mensual:
      * ID del plan base: monthly
      *
-     * Mientras no exista o no esté disponible, el botón
-     * de suscripción permanecerá deshabilitado.
+     * Plan anual:
+     * ID del plan base: yearly
+     *
+     * Los precios se consultan directamente desde
+     * Google Play Billing.
+     *
+     * No se definen precios manualmente en la aplicación.
+     *
+     * Mientras Google Play no entregue el plan solicitado,
+     * no se permitirá iniciar esa compra.
      */
 
     val monthlyOffer = offers.firstOrNull {
         it.basePlanId == SubscriptionManager.BASE_PLAN_MONTHLY
     }
 
+    val yearlyOffer = offers.firstOrNull {
+        it.basePlanId == SubscriptionManager.BASE_PLAN_YEARLY
+    }
+
     // Precio real entregado por Google Play.
     val monthlyPrice = monthlyOffer?.formattedPrice.orEmpty()
+    val yearlyPrice = yearlyOffer?.formattedPrice.orEmpty()
+
+    // =========================================================
+    // PLAN SELECCIONADO POR EL USUARIO
+    // =========================================================
+
+    /*
+     * El plan mensual se selecciona inicialmente.
+     *
+     * El usuario puede cambiar al plan anual
+     * antes de iniciar la compra.
+     *
+     * El ID seleccionado se envía directamente
+     * al SubscriptionManager.
+     */
+
+    var selectedBasePlanId by remember {
+        mutableStateOf(SubscriptionManager.BASE_PLAN_MONTHLY)
+    }
+
+    val selectedOffer = when (selectedBasePlanId) {
+        SubscriptionManager.BASE_PLAN_MONTHLY -> monthlyOffer
+        SubscriptionManager.BASE_PLAN_YEARLY -> yearlyOffer
+        else -> null
+    }
+
+    val selectedPrice = selectedOffer?.formattedPrice.orEmpty()
+
+    val selectedPeriod = when (selectedBasePlanId) {
+        SubscriptionManager.BASE_PLAN_YEARLY -> "año"
+        else -> "mes"
+    }
 
     // Solo se permite intentar la compra si Billing está listo
-    // y Google Play devolvió el plan mensual solicitado.
+    // y Google Play devolvió exactamente el plan solicitado.
     val canPurchasePremium =
-        billingReady && monthlyOffer != null && !isPremium
+        billingReady && selectedOffer != null && !isPremium
 
-    // Si se activó la pantalla de Bluetooth, la mostramos y ocultamos el Scaffold principal
+    // Si se activó la pantalla de Bluetooth, la mostramos
+    // y ocultamos el Scaffold principal.
     if (showBluetoothScreen) {
         BluetoothConnectScreen(
             bluetoothManager = bluetoothManager,
@@ -119,7 +175,8 @@ fun HomeScreen(
                 showBluetoothScreen = false // Volvemos al HomeScreen
             }
         )
-        return // Interrumpe el renderizado del código de abajo mientras estemos en Bluetooth
+
+        return // Interrumpe el renderizado mientras estemos en Bluetooth
     }
 
     Scaffold(
@@ -131,8 +188,12 @@ fun HomeScreen(
                 navItems.forEach { (label, icon, index) ->
                     NavigationBarItem(
                         selected = selectedItem == index,
-                        onClick = { selectedItem = index },
-                        label = { Text(text = label) },
+                        onClick = {
+                            selectedItem = index
+                        },
+                        label = {
+                            Text(text = label)
+                        },
                         icon = {
                             Icon(
                                 imageVector = icon,
@@ -151,7 +212,8 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding),
+                        .padding(innerPadding)
+                    .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.Bottom,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -196,6 +258,138 @@ fun HomeScreen(
                             if (!isPremium) {
 
                                 Spacer(
+                                    modifier = Modifier.height(16.dp)
+                                )
+
+                                // =========================================
+                                // SELECCIÓN DEL PLAN PREMIUM
+                                // =========================================
+
+                                /*
+                                 * El usuario puede seleccionar:
+                                 *
+                                 * monthly = plan mensual
+                                 * yearly = plan anual
+                                 *
+                                 * Los precios son los que devuelve
+                                 * Google Play Console.
+                                 */
+
+                                Text(
+                                    text = "Selecciona tu plan Premium",
+                                    style = MaterialTheme.typography.titleSmall
+                                )
+
+                                Spacer(
+                                    modifier = Modifier.height(8.dp)
+                                )
+
+                                // =========================================
+                                // OPCIÓN: PREMIUM MENSUAL
+                                // =========================================
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(
+                                            enabled = billingReady &&
+                                                    monthlyOffer != null
+                                        ) {
+                                            selectedBasePlanId =
+                                                SubscriptionManager.BASE_PLAN_MONTHLY
+                                        }
+                                        .padding(vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+
+                                    RadioButton(
+                                        selected =
+                                            selectedBasePlanId ==
+                                                    SubscriptionManager.BASE_PLAN_MONTHLY,
+                                        onClick = null,
+                                        enabled = billingReady &&
+                                                monthlyOffer != null
+                                    )
+
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            text = "Premium Mensual",
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+
+                                        Text(
+                                            text = if (monthlyOffer != null) {
+                                                if (monthlyPrice.isNotBlank()) {
+                                                    "$monthlyPrice / mes"
+                                                } else {
+                                                    "Precio por consultar"
+                                                }
+                                            } else {
+                                                "No disponible"
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color =
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                // =========================================
+                                // OPCIÓN: PREMIUM ANUAL
+                                // =========================================
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(
+                                            enabled = billingReady &&
+                                                    yearlyOffer != null
+                                        ) {
+                                            selectedBasePlanId =
+                                                SubscriptionManager.BASE_PLAN_YEARLY
+                                        }
+                                        .padding(vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+
+                                    RadioButton(
+                                        selected =
+                                            selectedBasePlanId ==
+                                                    SubscriptionManager.BASE_PLAN_YEARLY,
+                                        onClick = null,
+                                        enabled = billingReady &&
+                                                yearlyOffer != null
+                                    )
+
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+
+                                        Text(
+                                            text = "Premium Anual",
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+
+                                        Text(
+                                            text = if (yearlyOffer != null) {
+                                                if (yearlyPrice.isNotBlank()) {
+                                                    "$yearlyPrice / año"
+                                                } else {
+                                                    "Precio por consultar"
+                                                }
+                                            } else {
+                                                "No disponible"
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color =
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                Spacer(
                                     modifier = Modifier.height(12.dp)
                                 )
 
@@ -205,19 +399,25 @@ fun HomeScreen(
 
                                 /*
                                  * Solo se habilita cuando Google Play Billing
-                                 * está conectado y el plan monthly está
-                                 * disponible en Play Console.
+                                 * está conectado y el plan seleccionado
+                                 * está disponible en Play Console.
                                  *
                                  * No se activa Premium manualmente.
                                  * El resultado de la compra será procesado
                                  * por SubscriptionManager.
+                                 *
+                                 * Se utiliza exactamente el ID seleccionado
+                                 * y nunca se sustituye por otro plan.
                                  */
 
                                 Button(
                                     onClick = {
 
-                                        val activity =
-                                            context as? Activity
+                                        if (!canPurchasePremium) {
+                                            return@Button
+                                        }
+
+                                        val activity = context as? Activity
 
                                         if (activity == null) {
 
@@ -232,8 +432,7 @@ fun HomeScreen(
 
                                         subscriptionManager.purchase(
                                             activity = activity,
-                                            basePlanId =
-                                                SubscriptionManager.BASE_PLAN_MONTHLY,
+                                            basePlanId = selectedBasePlanId,
                                             onError = { msg ->
 
                                                 Toast.makeText(
@@ -257,16 +456,16 @@ fun HomeScreen(
                                                 "Conectando con Google Play..."
                                             }
 
-                                            monthlyOffer == null -> {
-                                                "Premium no disponible"
+                                            selectedOffer == null -> {
+                                                "Plan no disponible"
                                             }
 
-                                            monthlyPrice.isBlank() -> {
-                                                "Suscribirse"
+                                            selectedPrice.isBlank() -> {
+                                                "Suscribirse al plan seleccionado"
                                             }
 
                                             else -> {
-                                                "Suscribirse · $monthlyPrice"
+                                                "Suscribirse · $selectedPrice/$selectedPeriod"
                                             }
                                         }
                                     )
@@ -277,10 +476,10 @@ fun HomeScreen(
                                 // =========================================
 
                                 /*
-                                 * Mientras no se configure la cuenta
-                                 * de comerciante y el producto Premium
-                                 * en Google Play Console, se informa
-                                 * que la suscripción no está disponible.
+                                 * Mientras no se configure el producto
+                                 * Premium o alguno de sus planes básicos
+                                 * en Google Play Console, informamos que
+                                 * el plan solicitado no está disponible.
                                  */
 
                                 if (!canPurchasePremium) {
@@ -290,10 +489,19 @@ fun HomeScreen(
                                     )
 
                                     Text(
-                                        text = if (!billingReady) {
-                                            "Google Play Billing todavía no está conectado."
-                                        } else {
-                                            "El plan mensual Premium todavía no está disponible en Google Play."
+                                        text = when {
+
+                                            !billingReady -> {
+                                                "Google Play Billing todavía no está conectado."
+                                            }
+
+                                            selectedOffer == null -> {
+                                                "El plan seleccionado todavía no está disponible en Google Play."
+                                            }
+
+                                            else -> {
+                                                "No es posible iniciar la compra en este momento."
+                                            }
                                         },
                                         style = MaterialTheme.typography.bodySmall,
                                         color =
@@ -391,12 +599,13 @@ fun HomeScreen(
 
                 AyudasAuditivasScreen(
                     ttsManager = ttsManager,
-                    modifier =
-                        Modifier.padding(innerPadding)
+                    modifier = Modifier.padding(innerPadding),
+                    isPremium = isPremium
                 )
             }
 
             2 -> {
+
                 DiccionarioScreen(
                     modifier = Modifier.padding(innerPadding),
                     isPremium = isPremium
@@ -406,8 +615,7 @@ fun HomeScreen(
             3 -> {
 
                 AjustesScreen(
-                    modifier =
-                        Modifier.padding(innerPadding),
+                    modifier = Modifier.padding(innerPadding),
                     subscriptionManager = subscriptionManager,
                     onLogout = onLogout
                 )
@@ -419,15 +627,20 @@ fun HomeScreen(
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenPreview() {
+
     HaptivoiceTheme {
+
         // Manager usado solo para mostrar el Preview
         val context = LocalContext.current
+
         val bluetoothManager = remember {
             BluetoothManager(context.applicationContext)
         }
+
         val ttsManager = remember {
             TextToSpeechManager(context.applicationContext)
         }
+
         val subscriptionManager = remember {
             SubscriptionManager(context.applicationContext)
         }

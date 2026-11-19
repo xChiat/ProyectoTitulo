@@ -1,8 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!--Bluetooth para android 11 o anteriores -->
+    <!-- Bluetooth Android 11 o anteriores -->
     <uses-permission
         android:name="android.permission.BLUETOOTH"
         android:maxSdkVersion="30" />
@@ -11,12 +11,11 @@
         android:name="android.permission.BLUETOOTH_ADMIN"
         android:maxSdkVersion="30" />
 
-    <!-- Necesario para escanear BLE en Android 11 o anteriores -->
     <uses-permission
         android:name="android.permission.ACCESS_FINE_LOCATION"
         android:maxSdkVersion="30" />
 
-    <!-- Bluetooth para Android 12 o superior -->
+    <!-- Bluetooth Android 12 o superior -->
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
@@ -28,28 +27,33 @@
         android:name="android.hardware.bluetooth_le"
         android:required="false" />
 
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission
+        android:name="android.permission.WAKE_LOCK" />
 
-    <!-- Solo si más adelante montas un servicio en primer plano para TTS -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
+    <uses-permission
+        android:name="android.permission.INTERNET" />
+
+    <uses-permission
+        android:name="android.permission.RECORD_AUDIO" />
 
     <queries>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
 
-        <!-- Servicio de reconocimiento de voz -->
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Permiso para reconocimiento de voz -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
     <application
+        android:name="com.example.haptivoice.HaptiVoiceApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -58,27 +62,35 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Haptivoice">
+
         <activity
             android:name=".ui.activities.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Haptivoice"
             android:windowSoftInputMode="adjustResize">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
         </activity>
+
         <activity
             android:name=".ui.activities.LogInActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
+
         <activity
             android:name=".ui.activities.SignUpActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".ui.activities.RecoveryActivity"
+
+        <activity
+            android:name=".ui.activities.RecoveryActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
+
     </application>
+
 </manifest>

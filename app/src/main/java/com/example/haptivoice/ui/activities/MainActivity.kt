@@ -96,6 +96,26 @@ class MainActivity : ComponentActivity() {
                 val ttsManager = remember { TextToSpeechManager(context.applicationContext) }
                 val subscriptionManager = remember { SubscriptionManager(context.applicationContext) }
 
+//
+// =====================================================
+// CONEXIÓN DE SUSCRIPCIÓN PREMIUM CON EL MOTOR DE VOZ
+// =====================================================
+//
+
+                val premiumActive by
+                subscriptionManager.isPremium.collectAsState()
+
+                val premiumToken by
+                subscriptionManager.purchaseToken.collectAsState()
+
+                LaunchedEffect(premiumActive, premiumToken) {
+
+                    ttsManager.setPremiumAccess(
+                        active = premiumActive,
+                        purchaseToken = premiumToken
+                    )
+                }
+
                 DisposableEffect(Unit) {
                     subscriptionManager.start(
                         onError = { msg ->

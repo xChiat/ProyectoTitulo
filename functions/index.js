@@ -127,3 +127,11 @@ exports.resetPasswordWithOtp = onCall(async (request) => {
         throw new HttpsError('internal', 'Ocurrió un error al intentar cambiar la contraseña.');
     }
 });
+
+//
+// =====================================================
+// HAPTIVOICE PREMIUM - GOOGLE CLOUD TEXT TO SPEECH
+// =====================================================
+//
+exports.synthesizePremiumSpeech =
+    require("./premiumTts").synthesizePremiumSpeech;

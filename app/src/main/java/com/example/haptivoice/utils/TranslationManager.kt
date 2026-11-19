@@ -1,3 +1,4 @@
+
 package com.example.haptivoice.utils
 
 import android.util.Log
@@ -10,7 +11,22 @@ import com.google.mlkit.nl.translate.TranslatorOptions
 class TranslationManager {
 
     private val translators = mutableMapOf<String, Translator>()
+    private val readyTranslators = mutableSetOf<String>()
+
+    // Solicitudes que esperan la descarga del mismo modelo.
+    private data class PendingRequest(
+        val onReady: (Translator) -> Unit,
+        val onError: (String) -> Unit
+    )
+
+    private val pendingRequests =
+        mutableMapOf<String, MutableList<PendingRequest>>()
+
     private var isClosed = false
+
+    // =====================================================
+    // TRADUCCION ESPAÑOL A INGLES
+    // =====================================================
 
     fun translateSpanishToEnglish(
         text: String,
@@ -23,12 +39,18 @@ class TranslationManager {
             sourceLanguage = TranslateLanguage.SPANISH,
             targetLanguage = TranslateLanguage.ENGLISH,
             onResult = { translated ->
-                ttsManager?.setLanguage(TextToSpeechManager.SupportedLanguage.ENGLISH)
+                ttsManager?.setLanguage(
+                    TextToSpeechManager.SupportedLanguage.ENGLISH
+                )
                 onResult(translated)
             },
             onError = onError
         )
     }
+
+    // =====================================================
+    // TRADUCCION INGLES A ESPAÑOL
+    // =====================================================
 
     fun translateEnglishToSpanish(
         text: String,
@@ -41,12 +63,18 @@ class TranslationManager {
             sourceLanguage = TranslateLanguage.ENGLISH,
             targetLanguage = TranslateLanguage.SPANISH,
             onResult = { translated ->
-                ttsManager?.setLanguage(TextToSpeechManager.SupportedLanguage.SPANISH)
+                ttsManager?.setLanguage(
+                    TextToSpeechManager.SupportedLanguage.SPANISH
+                )
                 onResult(translated)
             },
             onError = onError
         )
     }
+
+    // =====================================================
+    // DESCARGA ANTICIPADA DE MODELOS
+    // =====================================================
 
     fun preloadModels(
         onReady: () -> Unit = {},
@@ -59,7 +87,9 @@ class TranslationManager {
                 ensureTranslator(
                     sourceLanguage = TranslateLanguage.ENGLISH,
                     targetLanguage = TranslateLanguage.SPANISH,
-                    onReady = { onReady() },
+                    onReady = {
+                        onReady()
+                    },
                     onError = onError
                 )
             },
@@ -67,13 +97,30 @@ class TranslationManager {
         )
     }
 
+    // =====================================================
+    // LIBERAR RECURSOS
+    // =====================================================
+
     fun close() {
+        if (isClosed) return
+
         isClosed = true
+
+        pendingRequests.clear()
+        readyTranslators.clear()
+
         translators.values.forEach { translator ->
-            runCatching { translator.close() }
+            runCatching {
+                translator.close()
+            }
         }
+
         translators.clear()
     }
+
+    // =====================================================
+    // REALIZAR TRADUCCION
+    // =====================================================
 
     private fun translateText(
         text: String,
@@ -87,7 +134,9 @@ class TranslationManager {
             return
         }
 
-        if (text.isBlank()) {
+        val cleanText = text.trim()
+
+        if (cleanText.isBlank()) {
             onError("No hay texto para traducir")
             return
         }
@@ -96,21 +145,37 @@ class TranslationManager {
             sourceLanguage = sourceLanguage,
             targetLanguage = targetLanguage,
             onReady = { translator ->
-                translator.translate(text)
-                    .addOnSuccessListener { translatedText ->
-                        onResult(translatedText)
-                    }
-                    .addOnFailureListener { exception ->
-                        Log.e(TAG, "Error al traducir", exception)
-                        onError(
-                            exception.localizedMessage
-                                ?: "Error al realizar la traducción"
-                        )
-                    }
+
+                if (!isClosed) {
+                    translator.translate(cleanText)
+                        .addOnSuccessListener { translatedText ->
+                            if (!isClosed) {
+                                onResult(translatedText)
+                            }
+                        }
+                        .addOnFailureListener { exception ->
+                            if (!isClosed) {
+                                Log.e(
+                                    TAG,
+                                    "Error al traducir",
+                                    exception
+                                )
+
+                                onError(
+                                    exception.localizedMessage
+                                        ?: "Error al realizar la traducción"
+                                )
+                            }
+                        }
+                }
             },
             onError = onError
         )
     }
+
+    // =====================================================
+    // PREPARAR TRADUCTOR Y COMPROBAR MODELO
+    // =====================================================
 
     private fun ensureTranslator(
         sourceLanguage: String,
@@ -118,10 +183,34 @@ class TranslationManager {
         onReady: (Translator) -> Unit,
         onError: (String) -> Unit
     ) {
+        if (isClosed) {
+            onError("TranslationManager ya fue cerrado")
+            return
+        }
+
         val key = "$sourceLanguage->$targetLanguage"
+
         val cached = translators[key]
-        if (cached != null) {
+
+        // Un traductor solamente está listo cuando la descarga
+        // del modelo terminó satisfactoriamente.
+        if (cached != null && key in readyTranslators) {
             onReady(cached)
+            return
+        }
+
+        // Si hay una descarga en curso, encolamos esta solicitud
+        // para evitar tratar el modelo como disponible antes de tiempo.
+        pendingRequests.getOrPut(key) {
+            mutableListOf()
+        }.add(
+            PendingRequest(
+                onReady = onReady,
+                onError = onError
+            )
+        )
+
+        if (cached != null) {
             return
         }
 
@@ -131,24 +220,63 @@ class TranslationManager {
             .build()
 
         val translator = Translation.getClient(options)
+
         translators[key] = translator
 
+        // Los modelos solo se descargan mediante Wi-Fi.
+        // Si ya están descargados pueden utilizarse sin Internet.
         val conditions = DownloadConditions.Builder()
             .requireWifi()
             .build()
 
         translator.downloadModelIfNeeded(conditions)
             .addOnSuccessListener {
-                onReady(translator)
+
+                if (isClosed) {
+                    return@addOnSuccessListener
+                }
+
+                readyTranslators.add(key)
+
+                Log.d(TAG, "Modelo listo: $key")
+
+                val requests = pendingRequests.remove(key)
+                    .orEmpty()
+
+                requests.forEach { request ->
+                    request.onReady(translator)
+                }
             }
             .addOnFailureListener { exception ->
+
+                if (isClosed) {
+                    return@addOnFailureListener
+                }
+
                 translators.remove(key)
-                runCatching { translator.close() }
-                Log.e(TAG, "No se pudo descargar el modelo $key", exception)
-                onError(
-                    exception.localizedMessage
-                        ?: "No se pudo descargar el modelo de traducción. Conéctate a Wi-Fi e inténtalo otra vez."
+                readyTranslators.remove(key)
+
+                runCatching {
+                    translator.close()
+                }
+
+                Log.e(
+                    TAG,
+                    "No se pudo descargar el modelo $key",
+                    exception
                 )
+
+                val message =
+                    "No se pudo preparar el modelo de traducción. " +
+                            "Comprueba tu conexión Wi-Fi e inténtalo nuevamente. " +
+                            (exception.localizedMessage ?: "")
+
+                val requests = pendingRequests.remove(key)
+                    .orEmpty()
+
+                requests.forEach { request ->
+                    request.onError(message)
+                }
             }
     }
 

@@ -14,8 +14,8 @@ android {
         applicationId = "cl.h1p0c.haptivoice"
         minSdk = 24
         targetSdk = 37
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 4
+        versionName = "1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -63,6 +63,8 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-functions")
+    // Firebase App Check - Play Integrity
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")
 
     // Google Play Services Auth (Necesario para el popup de selección de cuenta)
     implementation("com.google.android.gms:play-services-auth:21.1.1")
