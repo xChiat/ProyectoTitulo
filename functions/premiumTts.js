@@ -1,4 +1,3 @@
-
 "use strict";
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
@@ -157,6 +156,16 @@ async function requireValidSubscription(uid, purchaseToken) {
             });
         }
     });
+
+    // Etapa 7: la fecha de vencimiento se guarda en plans/{uid}.
+    const expiryMillis = Math.max(
+        ...(purchase.lineItems || [])
+            .filter(item => item.productId === SUBSCRIPTION_ID)
+            .map(item => Date.parse(item.expiryTime))
+            .filter(Number.isFinite)
+    );
+
+    return { expiryMillis };
 }
 
 // =====================================================
@@ -304,3 +313,6 @@ exports.synthesizePremiumSpeech = onCall({
         );
     }
 });
+
+// Etapa 7: gestures.js la usa para refreshPlanStatus.
+exports.requireValidSubscription = requireValidSubscription;

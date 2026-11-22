@@ -266,6 +266,17 @@ exports.resetPasswordWithOtp = onCall(async (request) => {
 exports.synthesizePremiumSpeech =
     require("./premiumTts").synthesizePremiumSpeech;
 
+    // =====================================================
+    // GESTOS PROPIOS: PLAN Y TOPE DEL PLAN GRATUITO (ETAPA 7)
+    // =====================================================
+
+    const gestures = require("./gestures");
+
+    exports.refreshPlanStatus = gestures.refreshPlanStatus;
+    exports.enforceGestureQuota = gestures.enforceGestureQuota;
+
+exports.publishDictionary = require("./dictionary").publishDictionary;
+
 // =====================================================
 // LIMPIEZA AUTOMÁTICA DE OTP EXPIRADOS
 // =====================================================

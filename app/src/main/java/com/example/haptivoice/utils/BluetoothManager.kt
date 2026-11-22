@@ -19,6 +19,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
+import android.os.SystemClock
+import com.example.haptivoice.model.GloveStats
+import com.example.haptivoice.model.Hand
+import com.example.haptivoice.model.SensorFrame
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.update
 
 // =============================================================
 // DISPOSITIVO BLE
@@ -63,6 +72,16 @@ class BluetoothManager(
 
         // El sistema permite conectar como máximo dos guantes.
         const val MAX_CONNECTED_GLOVES = 2
+
+        /*
+         * MTU que pedimos al conectar.
+         *
+         * Con el MTU por defecto (23 bytes) una notificación
+         * solo lleva 20 bytes de datos, y la trama del guante
+         * mide entre 50 y 80 caracteres. Con 185 caben
+         * 182 bytes por notificación.
+         */
+        const val REQUESTED_MTU = 185
     }
 
     // =========================================================
@@ -157,6 +176,105 @@ class BluetoothManager(
         _incomingMessage.asStateFlow()
 
     // =========================================================
+    // TRAMAS DE SENSORES (ETAPA 1)
+    // =========================================================
+
+    /*
+     * Cada trama válida de cualquiera de los dos guantes.
+     * A diferencia de incomingMessage, no descarta valores:
+     * el clasificador recibirá todas las muestras.
+     * Si nadie alcanza a leer, se descartan las más antiguas.
+     */
+    private val _sensorFrames =
+        MutableSharedFlow<SensorFrame>(
+            extraBufferCapacity = 256,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
+
+    val sensorFrames: SharedFlow<SensorFrame> =
+        _sensorFrames.asSharedFlow()
+
+    private val statsTracker = FrameStatsTracker()
+
+    private val _gloveStats =
+        MutableStateFlow<Map<Hand, GloveStats>>(emptyMap())
+
+    val gloveStats: StateFlow<Map<Hand, GloveStats>> =
+        _gloveStats.asStateFlow()
+
+    // Líneas que no cumplen el formato v3 (por ejemplo, cortadas).
+    private val _invalidLines = MutableStateFlow(0L)
+
+    val invalidLines: StateFlow<Long> =
+        _invalidLines.asStateFlow()
+
+    // Mano de cada guante conectado, según su primera trama válida.
+    private val _handsByAddress =
+        MutableStateFlow<Map<String, Hand>>(emptyMap())
+
+    val handsByAddress: StateFlow<Map<String, Hand>> =
+        _handsByAddress.asStateFlow()
+
+    // true solo con un guante I y uno D conectados (HU08).
+    private val _isPairReady = MutableStateFlow(false)
+
+    val isPairReady: StateFlow<Boolean> =
+        _isPairReady.asStateFlow()
+
+    // =========================================================
+    // MANO DE CADA GUANTE
+    // =========================================================
+
+    private fun registerHand(
+        deviceAddress: String,
+        hand: Hand
+    ) {
+
+        synchronized(connectionLock) {
+
+            if (deviceAddress !in _connectedDeviceAddresses.value) {
+                return
+            }
+
+            if (_handsByAddress.value[deviceAddress] == hand) {
+                return
+            }
+
+            val updated =
+                _handsByAddress.value + (deviceAddress to hand)
+
+            _handsByAddress.value = updated
+            _isPairReady.value = isCompletePair(updated)
+        }
+    }
+
+    private fun forgetHand(deviceAddress: String) {
+
+        synchronized(connectionLock) {
+
+            val hand =
+                _handsByAddress.value[deviceAddress] ?: return
+
+            val updated =
+                _handsByAddress.value - deviceAddress
+
+            _handsByAddress.value = updated
+            _isPairReady.value = isCompletePair(updated)
+
+            // Si ningún otro guante usa esa mano, borramos sus estadísticas.
+            if (hand !in updated.values) {
+                _gloveStats.value = statsTracker.remove(hand)
+            }
+        }
+    }
+
+    private fun isCompletePair(
+        hands: Map<String, Hand>
+    ): Boolean =
+        hands.size == 2 &&
+                hands.values.toSet() == setOf(Hand.LEFT, Hand.RIGHT)
+
+    // =========================================================
 // SILENCIAR GUANTES
 // =========================================================
 
@@ -211,6 +329,9 @@ class BluetoothManager(
                 // Al desconectar, eliminamos también su estado de muteo.
                 _mutedDeviceAddresses.value =
                     _mutedDeviceAddresses.value - deviceAddress
+
+                // El guante ya no cuenta para el par.
+                forgetHand(deviceAddress)
             }
 
             _connectedDeviceAddresses.value =
@@ -349,15 +470,30 @@ class BluetoothManager(
                     )
 
                     _incomingMessage.value =
-                        "ESP32 conectado. Buscando servicios..."
+                        "ESP32 conectado. Ajustando MTU..."
 
                     /*
-                     * Una vez conectado,
-                     * buscamos los servicios BLE
-                     * disponibles en el ESP32.
+                     * Antes de buscar servicios pedimos un MTU
+                     * grande, para que la trama completa del
+                     * guante quepa en una sola notificación.
+                     *
+                     * Los servicios se buscan en onMtuChanged.
+                     * Si Android rechaza la solicitud, los
+                     * buscamos de inmediato con el MTU actual.
                      */
 
-                    gatt.discoverServices()
+                    val mtuRequested =
+                        gatt.requestMtu(
+                            REQUESTED_MTU
+                        )
+
+                    if (!mtuRequested) {
+
+                        _incomingMessage.value =
+                            "No se pudo pedir MTU grande. Buscando servicios..."
+
+                        gatt.discoverServices()
+                    }
 
                     /*
                      * Si ya tenemos los dos guantes,
@@ -405,6 +541,39 @@ class BluetoothManager(
                             "Guantes conectados: ${_connectedGlovesCount.value}"
                     }
                 }
+            }
+
+            // -------------------------------------------------
+            // MTU NEGOCIADO
+            // -------------------------------------------------
+
+            @SuppressLint("MissingPermission")
+            override fun onMtuChanged(
+                gatt: BluetoothGatt,
+                mtu: Int,
+                status: Int
+            ) {
+
+                super.onMtuChanged(
+                    gatt,
+                    mtu,
+                    status
+                )
+
+                /*
+                 * Aunque la negociación falle, seguimos con
+                 * el MTU que haya quedado: el guante se conecta
+                 * igual y el problema se ve en el mensaje.
+                 */
+
+                _incomingMessage.value =
+                    if (status == BluetoothGatt.GATT_SUCCESS) {
+                        "MTU $mtu. Buscando servicios..."
+                    } else {
+                        "MTU no negociado (estado $status). Buscando servicios..."
+                    }
+
+                gatt.discoverServices()
             }
 
             // -------------------------------------------------
@@ -535,6 +704,7 @@ class BluetoothManager(
                 ) {
 
                     handleIncomingMessage(
+                        gatt.device.address,
                         value
                     )
                 }
@@ -568,6 +738,7 @@ class BluetoothManager(
                             ?: return
 
                     handleIncomingMessage(
+                        gatt.device.address,
                         value
                     )
                 }
@@ -579,6 +750,7 @@ class BluetoothManager(
     // =========================================================
 
     private fun handleIncomingMessage(
+        deviceAddress: String,
         data: ByteArray
     ) {
 
@@ -594,8 +766,32 @@ class BluetoothManager(
                 Charsets.UTF_8
             )
 
+        // Se mantiene para la tarjeta de Home.
         _incomingMessage.value =
             message
+
+        val frame =
+            FrameParser.parse(
+                message,
+                SystemClock.elapsedRealtime()
+            )
+
+        if (frame == null) {
+
+            _invalidLines.update { it + 1 }
+
+            return
+        }
+
+        registerHand(
+            deviceAddress,
+            frame.hand
+        )
+
+        _gloveStats.value =
+            statsTracker.record(frame)
+
+        _sensorFrames.tryEmit(frame)
     }
 
     // =========================================================

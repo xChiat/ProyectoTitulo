@@ -793,6 +793,6 @@ class SubscriptionManager(
         const val BASE_PLAN_MONTHLY = "monthly"
         const val BASE_PLAN_YEARLY = "yearly"
 
-        const val FREE_GESTURE_LIMIT = 3
+        const val FREE_GESTURE_LIMIT = 8
     }
 }

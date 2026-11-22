@@ -1,7 +1,9 @@
 package com.example.haptivoice.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.haptivoice.data.sync.VocabularySync
 import com.example.haptivoice.model.UserData
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -22,7 +24,14 @@ sealed class ProfileUiState {
     object AccountDeleted : ProfileUiState()
 }
 
-class ProfileViewModel : ViewModel() {
+/*
+ * AndroidViewModel para tener el Context de la app: al eliminar
+ * la cuenta también se borran los gestos guardados en Room.
+ * viewModel() lo crea igual que antes, sin cambios en AjustesScreen.
+ */
+class ProfileViewModel(
+    application: Application
+) : AndroidViewModel(application) {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
     private val _uiState = MutableStateFlow<ProfileUiState>(ProfileUiState.Loading)
@@ -85,6 +94,11 @@ class ProfileViewModel : ViewModel() {
             _uiState.value = ProfileUiState.Loading
 
             try {
+                // HU07 / CU-006: primero los gestos propios y las
+                // reasignaciones (Firestore y teléfono), mientras la
+                // sesión sigue activa y las reglas permiten borrarlos.
+                VocabularySync(getApplication()).deleteAllForUser(uid)
+
                 // Elimina los datos del usuario en Firestore
                 firestore.collection("users")
                     .document(uid)

@@ -1,4 +1,3 @@
-
 package com.example.haptivoice.ui.screens
 
 import android.app.Activity
@@ -23,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -37,7 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.haptivoice.ui.theme.HaptivoiceTheme
@@ -46,6 +45,9 @@ import com.example.haptivoice.utils.SubscriptionManager
 import com.example.haptivoice.utils.TextToSpeechManager
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.LaunchedEffect
+import com.example.haptivoice.data.sync.PlanStatusSync
+import com.example.haptivoice.data.sync.VocabularySyncScheduler
 
 @Composable
 fun HomeScreen(
@@ -62,13 +64,18 @@ fun HomeScreen(
     val connectedGlovesCount by
     bluetoothManager.connectedGlovesCount.collectAsState()
 
-    // Variables para la navegación y la tarjeta del ESP32
+    // Pantalla para vincular guantes.
     var showBluetoothScreen by remember {
         mutableStateOf(false)
     }
-
-    // El mensaje ahora se actualiza desde BluetoothManager
-    val esp32Message by bluetoothManager.incomingMessage.collectAsState()
+    // Pantalla de depuración de sensores (etapa 1).
+    var showSensorDebugScreen by remember {
+        mutableStateOf(false)
+    }
+    // Pantalla de grabación de señas (etapa 3).
+    var showGestureRecordScreen by remember {
+        mutableStateOf(false)
+    }
 
     // =========================================================
     // ESTADO DE GOOGLE PLAY BILLING Y PREMIUM
@@ -82,6 +89,20 @@ fun HomeScreen(
 
     // Ofertas reales obtenidas desde Google Play.
     val offers by subscriptionManager.offers.collectAsState()
+
+    // Etapa 7: respaldar gestos al abrir Home (si no hay red, espera).
+    val homeContext = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        VocabularySyncScheduler.request(homeContext)
+    }
+
+    // Etapa 7: avisar al servidor si es Premium (tope de 8 gestos).
+    val purchaseToken by subscriptionManager.purchaseToken.collectAsState()
+
+    LaunchedEffect(purchaseToken) {
+        PlanStatusSync.refresh(purchaseToken)
+    }
 
     var selectedItem by remember {
         mutableIntStateOf(0)
@@ -166,6 +187,27 @@ fun HomeScreen(
     val canPurchasePremium =
         billingReady && selectedOffer != null && !isPremium
 
+    if (showSensorDebugScreen) {
+        SensorDebugScreen(
+            bluetoothManager = bluetoothManager,
+            onNavigateBack = {
+                showSensorDebugScreen = false
+            }
+        )
+
+        return
+    }
+    if (showGestureRecordScreen) {
+        GestureRecordScreen(
+            bluetoothManager = bluetoothManager,
+            isPremium = isPremium,
+            onNavigateBack = {
+                showGestureRecordScreen = false
+            }
+        )
+
+        return
+    }
     // Si se activó la pantalla de Bluetooth, la mostramos
     // y ocultamos el Scaffold principal.
     if (showBluetoothScreen) {
@@ -213,7 +255,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
-                    .verticalScroll(rememberScrollState()),
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.Bottom,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -541,7 +583,7 @@ fun HomeScreen(
                     }
 
                     // Si existe al menos un guante conectado,
-                    // mostramos su estado y los mensajes recibidos.
+                    // mostramos la traducción y la calibración.
                     if (connectedGlovesCount > 0) {
 
                         Text(
@@ -557,38 +599,50 @@ fun HomeScreen(
                             modifier = Modifier.height(16.dp)
                         )
 
-                        OutlinedCard(
+                        RecognitionPanel(
+                            bluetoothManager = bluetoothManager,
+                            ttsManager = ttsManager,
+                            subscriptionManager = subscriptionManager,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 32.dp)
+                                .padding(bottom = 16.dp)
+                        )
+
+                        // Calibración de los guantes: reemplaza el
+                        // mensaje crudo del ESP32. Muestra ✓ al calibrar.
+                        CalibrationCard(
+                            bluetoothManager = bluetoothManager,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 32.dp)
+                                .padding(bottom = 16.dp)
+                        )
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 32.dp)
                                 .padding(bottom = 32.dp)
                         ) {
 
-                            Column(
-                                modifier = Modifier.padding(24.dp),
-                                horizontalAlignment =
-                                    Alignment.CenterHorizontally
+                            OutlinedButton(
+                                onClick = {
+                                    showGestureRecordScreen = true
+                                },
+                                modifier = Modifier.weight(1f)
                             ) {
+                                Text("Grabar señas")
+                            }
 
-                                Text(
-                                    text =
-                                        "Mensaje entrante del ESP32:",
-                                    style =
-                                        MaterialTheme.typography.labelMedium,
-                                    color =
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-
-                                Spacer(
-                                    modifier = Modifier.height(8.dp)
-                                )
-
-                                Text(
-                                    text = esp32Message,
-                                    style =
-                                        MaterialTheme.typography.bodyLarge,
-                                    textAlign = TextAlign.Center
-                                )
+                            OutlinedButton(
+                                onClick = {
+                                    showSensorDebugScreen = true
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Ver sensores")
                             }
                         }
                     }
@@ -596,7 +650,6 @@ fun HomeScreen(
             }
 
             1 -> {
-
                 AyudasAuditivasScreen(
                     ttsManager = ttsManager,
                     modifier = Modifier.padding(innerPadding),
@@ -605,15 +658,15 @@ fun HomeScreen(
             }
 
             2 -> {
-
                 DiccionarioScreen(
+                    bluetoothManager = bluetoothManager,
+                    ttsManager = ttsManager,
                     modifier = Modifier.padding(innerPadding),
                     isPremium = isPremium
                 )
             }
 
             3 -> {
-
                 AjustesScreen(
                     modifier = Modifier.padding(innerPadding),
                     subscriptionManager = subscriptionManager,
