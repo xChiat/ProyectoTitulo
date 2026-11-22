@@ -33,6 +33,7 @@ fun AyudasAuditivasScreen(
     modifier: Modifier = Modifier,
     isPremium: Boolean = false
 ) {
+
     val context = LocalContext.current
 
     // =====================================================
@@ -43,8 +44,6 @@ fun AyudasAuditivasScreen(
         SpeechToTextManager(context.applicationContext)
     }
 
-    // Google ML Kit: traducción de español a inglés
-    // y de inglés a español.
     val translationManager = remember {
         TranslationManager()
     }
@@ -53,12 +52,10 @@ fun AyudasAuditivasScreen(
     // TEXTO A VOZ
     // =====================================================
 
-    // Texto escrito para reproducir.
     var writtenText by remember {
         mutableStateOf("")
     }
 
-    // Traducción del texto escrito al inglés.
     var translatedSpeechText by remember {
         mutableStateOf("")
     }
@@ -75,7 +72,6 @@ fun AyudasAuditivasScreen(
     // VOZ A TEXTO
     // =====================================================
 
-    // El texto mostrado siempre será español.
     var recognizedText by remember {
         mutableStateOf("")
     }
@@ -92,9 +88,8 @@ fun AyudasAuditivasScreen(
         mutableStateOf(false)
     }
 
-    // Idioma que el usuario hablará al micrófono.
-    // es-CL = Español (Chile)
-    // en-US = Inglés (Estados Unidos)
+    // es-CL: español de Chile
+    // en-US: inglés de Estados Unidos
     var recognitionLanguage by remember {
         mutableStateOf("es-CL")
     }
@@ -103,9 +98,23 @@ fun AyudasAuditivasScreen(
         mutableStateOf(false)
     }
 
-    // Si Premium deja de estar activo,
-    // el idioma disponible vuelve a español.
+    // =====================================================
+    // ACTUALIZACIÓN AUTOMÁTICA DEL PLAN
+    // =====================================================
+
+    // La calidad de voz NO se selecciona aquí.
+    //
+    // TextToSpeechManager.setPremiumAccess()
+    // determina si corresponde voz HIGH o NORMAL
+    // según el estado y token de Google Play.
+    //
+    // Esta pantalla únicamente recibe isPremium
+    // para mostrar las opciones permitidas.
+
+    // Si Premium deja de estar activo, el idioma
+    // de reconocimiento regresa a español.
     LaunchedEffect(isPremium) {
+
         if (!isPremium && recognitionLanguage == "en-US") {
             recognitionLanguage = "es-CL"
         }
@@ -125,6 +134,7 @@ fun AyudasAuditivasScreen(
             TextToSpeechManager.SupportedLanguage.SPANISH
         )
 
+        speechMessage = "Reproduciendo texto en español."
 
         ttsManager.speak(
             text = writtenText.trim(),
@@ -137,8 +147,6 @@ fun AyudasAuditivasScreen(
                 speechMessage = message
             }
         )
-
-        speechMessage = "Reproduciendo texto en español."
     }
 
     // =====================================================
@@ -147,9 +155,12 @@ fun AyudasAuditivasScreen(
 
     fun translateAndSpeakEnglish() {
 
+        // Traducción exclusiva para Premium.
         if (!isPremium) {
+
             speechMessage =
                 "Necesitas HaptiVoice Premium para traducir."
+
             return
         }
 
@@ -174,11 +185,14 @@ fun AyudasAuditivasScreen(
                 translatedSpeechText = translated
                 isTranslatingSpeech = false
 
-                // Pronunciar el resultado en inglés.
+                // Cambiar el idioma de pronunciación
+                // antes de reproducir el texto traducido.
                 ttsManager.setLanguage(
                     TextToSpeechManager.SupportedLanguage.ENGLISH
                 )
 
+                speechMessage =
+                    "Traducción completada. Reproduciendo en inglés."
 
                 ttsManager.speak(
                     text = translated,
@@ -191,9 +205,6 @@ fun AyudasAuditivasScreen(
                         speechMessage = message
                     }
                 )
-
-                speechMessage =
-                    "Traducción completada. Reproduciendo en inglés."
             },
 
             onError = { error ->
@@ -210,17 +221,21 @@ fun AyudasAuditivasScreen(
 
     fun startRecognition() {
 
-        if (isListening ||
+        if (
+            isListening ||
             isTranslatingRecognition ||
             isTranslatingSpeech
         ) {
             return
         }
 
-        // El reconocimiento en inglés requiere Premium.
+        // Reconocimiento con traducción exclusivo
+        // para usuarios Premium.
         if (recognitionLanguage == "en-US" && !isPremium) {
+
             recognitionMessage =
                 "El reconocimiento con traducción requiere Premium."
+
             return
         }
 
@@ -228,7 +243,6 @@ fun AyudasAuditivasScreen(
         recognitionMessage = "Escuchando..."
         isListening = true
 
-        // Utilizamos el idioma elegido por el usuario.
         val selectedLanguage = recognitionLanguage
 
         speechManager.startListening(
@@ -239,8 +253,10 @@ fun AyudasAuditivasScreen(
                 isListening = false
 
                 if (text.isBlank()) {
+
                     recognitionMessage =
                         "No se reconoció ningún texto."
+
                     return@startListening
                 }
 
@@ -250,20 +266,19 @@ fun AyudasAuditivasScreen(
 
                 if (selectedLanguage == "es-CL") {
 
-                    // El resultado ya está en español.
                     recognizedText = text
-
                     recognitionMessage = ""
+
                 } else {
 
                     // =====================================
                     // RECONOCIMIENTO EN INGLÉS
                     // =====================================
 
-                    // No mostramos directamente el texto
-                    // inglés: primero lo traducimos.
-                    recognizedText = ""
+                    // El resultado se traduce al español
+                    // antes de mostrarse en pantalla.
 
+                    recognizedText = ""
                     isTranslatingRecognition = true
 
                     recognitionMessage =
@@ -274,10 +289,7 @@ fun AyudasAuditivasScreen(
 
                         onResult = { translated ->
 
-                            // Solo se muestra el resultado
-                            // traducido al español.
                             recognizedText = translated
-
                             isTranslatingRecognition = false
 
                             recognitionMessage =
@@ -287,9 +299,6 @@ fun AyudasAuditivasScreen(
                         onError = { error ->
 
                             isTranslatingRecognition = false
-
-                            // No mostramos inglés si falla
-                            // la traducción.
                             recognizedText = ""
 
                             recognitionMessage =
@@ -302,7 +311,6 @@ fun AyudasAuditivasScreen(
             onError = { error ->
 
                 isListening = false
-
                 recognitionMessage = error
             }
         )
@@ -334,35 +342,13 @@ fun AyudasAuditivasScreen(
             if (granted) {
 
                 startRecognition()
+
             } else {
 
                 recognitionMessage =
                     "Se necesita permiso para utilizar el micrófono."
             }
         }
-//
-// =====================================================
-// ESTADO DE VOCES PREMIUM
-// =====================================================
-//
-
-    var useHighQualityVoice by remember {
-        mutableStateOf(
-            ttsManager.getVoiceQualityTier() ==
-                    TextToSpeechManager.VoiceQualityTier.HIGH
-        )
-    }
-
-// Si termina la suscripción, regresar a voz normal.
-    LaunchedEffect(isPremium) {
-        if (!isPremium) {
-            useHighQualityVoice = false
-
-            ttsManager.setVoiceQualityTier(
-                TextToSpeechManager.VoiceQualityTier.NORMAL
-            )
-        }
-    }
 
     // =====================================================
     // LIBERAR RECURSOS
@@ -416,77 +402,39 @@ fun AyudasAuditivasScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
-//
-// =====================================================
-// SELECTOR DE VOCES DE ALTA CALIDAD
-// =====================================================
-//
+        // =====================================================
+        // INFORMACIÓN DE VOZ SEGÚN SUSCRIPCIÓN
+        // =====================================================
+
+        // Ya no existe ningún Switch.
+        // La calidad cambia automáticamente según
+        // el acceso Premium del usuario.
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
+        Text(
+            text = if (isPremium) {
 
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+                "HaptiVoice Premium: voces de alta calidad " +
+                        "de Google Cloud seleccionadas " +
+                        "automáticamente. Requiere Internet."
 
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            } else {
 
-                Text(
-                    text = "Voces de alta calidad",
-                    style = MaterialTheme.typography.titleMedium
-                )
+                "HaptiVoice Básico: voces del dispositivo " +
+                        "Android seleccionadas automáticamente."
+            },
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = if (isPremium) {
-                        "Google Cloud Neural2 · requiere Internet"
-                    } else {
-                        "Disponible con HaptiVoice Premium"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Switch(
-                checked = useHighQualityVoice,
-                enabled = isPremium,
-
-                onCheckedChange = { enabled ->
-
-                    val requestedTier =
-                        if (enabled) {
-                            TextToSpeechManager.VoiceQualityTier.HIGH
-                        } else {
-                            TextToSpeechManager.VoiceQualityTier.NORMAL
-                        }
-
-                    val accepted =
-                        ttsManager.setVoiceQualityTier(requestedTier)
-
-                    useHighQualityVoice =
-                        enabled && accepted
-
-                    speechMessage =
-                        if (enabled && accepted) {
-                            "Voces Premium seleccionadas."
-                        } else if (enabled) {
-                            "Esperando la verificación de Premium."
-                        } else {
-                            "Voces normales seleccionadas."
-                        }
-                }
-            )
-        }
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Spacer(modifier = Modifier.height(12.dp))
+
+        // =====================================================
+        // CAMPO DE TEXTO PARA REPRODUCCIÓN
+        // =====================================================
 
         OutlinedTextField(
             value = writtenText,
@@ -504,7 +452,9 @@ fun AyudasAuditivasScreen(
             },
 
             placeholder = {
-                Text("Escribe el mensaje que quieres reproducir...")
+                Text(
+                    "Escribe el mensaje que quieres reproducir..."
+                )
             },
 
             modifier = Modifier
@@ -526,14 +476,16 @@ fun AyudasAuditivasScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            // Reproducción normal, disponible gratis.
+            // La reproducción utiliza automáticamente
+            // la calidad correspondiente al plan.
             Button(
                 onClick = {
                     reproduceSpanishText()
                 },
 
-                enabled = writtenText.isNotBlank() &&
-                        !isTranslatingSpeech,
+                enabled =
+                    writtenText.isNotBlank() &&
+                            !isTranslatingSpeech,
 
                 modifier = Modifier.weight(1f)
             ) {
@@ -551,15 +503,17 @@ fun AyudasAuditivasScreen(
                 )
             }
 
-            // Traducción ES -> EN con reproducción.
+            // Traducción español -> inglés.
+            // Disponible solamente con Premium.
             OutlinedButton(
                 onClick = {
                     translateAndSpeakEnglish()
                 },
 
-                enabled = isPremium &&
-                        writtenText.isNotBlank() &&
-                        !isTranslatingSpeech,
+                enabled =
+                    isPremium &&
+                            writtenText.isNotBlank() &&
+                            !isTranslatingSpeech,
 
                 modifier = Modifier.weight(1f)
             ) {
@@ -570,6 +524,7 @@ fun AyudasAuditivasScreen(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp
                     )
+
                 } else {
 
                     Text(
@@ -581,19 +536,29 @@ fun AyudasAuditivasScreen(
             }
         }
 
+        // =====================================================
+        // AVISO PARA USUARIOS GRATUITOS
+        // =====================================================
+
         if (!isPremium) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "La traducción a inglés requiere HaptiVoice Premium.",
+                text =
+                    "La traducción a inglés requiere " +
+                            "HaptiVoice Premium.",
+
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth()
             )
         }
 
-        // Mostrar el resultado que se está pronunciando.
+        // =====================================================
+        // TEXTO TRADUCIDO
+        // =====================================================
+
         if (translatedSpeechText.isNotBlank()) {
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -604,6 +569,10 @@ fun AyudasAuditivasScreen(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+
+        // =====================================================
+        // MENSAJES DE REPRODUCCIÓN
+        // =====================================================
 
         if (speechMessage.isNotBlank()) {
 
@@ -653,12 +622,17 @@ fun AyudasAuditivasScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
+            // =============================================
+            // BOTÓN ESCUCHAR / DETENER
+            // =============================================
+
             Button(
                 onClick = {
 
                     if (isListening) {
 
                         stopRecognition()
+
                     } else {
 
                         val hasPermission =
@@ -670,6 +644,7 @@ fun AyudasAuditivasScreen(
                         if (hasPermission) {
 
                             startRecognition()
+
                         } else {
 
                             microphonePermissionLauncher.launch(
@@ -679,8 +654,9 @@ fun AyudasAuditivasScreen(
                     }
                 },
 
-                enabled = !isTranslatingRecognition &&
-                        !isTranslatingSpeech,
+                enabled =
+                    !isTranslatingRecognition &&
+                            !isTranslatingSpeech,
 
                 modifier = Modifier.weight(1f)
             ) {
@@ -705,7 +681,10 @@ fun AyudasAuditivasScreen(
                 )
             }
 
-            // Selector del idioma de entrada.
+            // =============================================
+            // SELECTOR DE IDIOMA
+            // =============================================
+
             Box(
                 modifier = Modifier.weight(1f)
             ) {
@@ -715,9 +694,10 @@ fun AyudasAuditivasScreen(
                         languageMenuExpanded = true
                     },
 
-                    enabled = !isListening &&
-                            !isTranslatingRecognition &&
-                            !isTranslatingSpeech,
+                    enabled =
+                        !isListening &&
+                                !isTranslatingRecognition &&
+                                !isTranslatingSpeech,
 
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -746,6 +726,7 @@ fun AyudasAuditivasScreen(
                     }
                 ) {
 
+                    // Idioma gratuito.
                     DropdownMenuItem(
                         text = {
                             Text("Español (Chile)")
@@ -761,6 +742,7 @@ fun AyudasAuditivasScreen(
                         }
                     )
 
+                    // Idioma Premium.
                     DropdownMenuItem(
                         text = {
                             Text("Inglés (Premium)")
@@ -783,12 +765,22 @@ fun AyudasAuditivasScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // =====================================================
+        // INFORMACIÓN DEL IDIOMA SELECCIONADO
+        // =====================================================
+
         Text(
             text = if (recognitionLanguage == "en-US") {
-                "Escuchando inglés. El texto se traducirá automáticamente al español."
+
+                "Escuchando inglés. El texto se traducirá " +
+                        "automáticamente al español."
+
             } else {
-                "Escuchando español. El resultado se mostrará en español."
+
+                "Escuchando español. El resultado se " +
+                        "mostrará en español."
             },
+
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth()
@@ -846,12 +838,18 @@ fun AyudasAuditivasScreen(
 
                 Text(
                     text = recognizedText.ifBlank {
+
                         if (isTranslatingRecognition) {
+
                             "Traduciendo reconocimiento al español..."
+
                         } else {
-                            "Aquí aparecerá el texto reconocido en español."
+
+                            "Aquí aparecerá el texto " +
+                                    "reconocido en español."
                         }
                     },
+
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )

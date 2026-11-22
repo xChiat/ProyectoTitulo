@@ -1,14 +1,19 @@
+
 package com.example.haptivoice.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+
 import com.example.haptivoice.model.AuthState
 import com.example.haptivoice.model.UserData
+import com.example.haptivoice.utils.TermsConfig
+
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
+
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,44 +25,74 @@ class AuthViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
 
-    // Usamos AuthState para manejar tanto el login de Google como el de Correo/Contraseña
-    private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
-    val authState: StateFlow<AuthState> = _authState.asStateFlow()
+    private val _authState =
+        MutableStateFlow<AuthState>(AuthState.Idle)
 
-    // =======================================================================
+    val authState: StateFlow<AuthState> =
+        _authState.asStateFlow()
+
+    // =====================================================
     // 1. REGISTRO CON CORREO Y CONTRASEÑA
-    // =======================================================================
+    // =====================================================
+
     fun signUpWithEmail(
         username: String,
         email: String,
         password: String,
         disability: String,
-        voiceType: String
+        voiceType: String,
+        acceptedTerms: Boolean
     ) {
+
+        // Impedir la creación de la cuenta
+        // si no aceptó los términos.
+
+        if (!acceptedTerms) {
+            _authState.value = AuthState.Error(
+                "Debes aceptar los términos y condiciones."
+            )
+            return
+        }
+
         viewModelScope.launch {
+
             _authState.value = AuthState.Loading
 
             try {
-                // Crear usuario primero en Firebase Auth
+
+                // Crear usuario en Firebase Authentication.
+
                 val authResult =
-                    auth.createUserWithEmailAndPassword(email, password).await()
+                    auth.createUserWithEmailAndPassword(
+                        email,
+                        password
+                    ).await()
 
                 val userId = authResult.user?.uid
 
                 if (userId == null) {
-                    _authState.value =
-                        AuthState.Error("Error al crear la cuenta")
+
+                    _authState.value = AuthState.Error(
+                        "Error al crear la cuenta"
+                    )
+
                     return@launch
                 }
 
-                // Guardar datos en Firestore usando la clase UserData
+                // Guardar cuándo aceptó los términos
+                // y qué versión aceptó.
+
+                val now = Timestamp.now()
+
                 val userData = UserData(
                     userId = userId,
                     username = username,
                     email = email,
                     disability = disability,
                     voiceType = voiceType,
-                    createdAt = Timestamp.now()
+                    createdAt = now,
+                    termsVersion = TermsConfig.VERSION,
+                    termsAcceptedAt = now
                 )
 
                 firestore.collection("users")
@@ -67,10 +102,9 @@ class AuthViewModel : ViewModel() {
 
                 Log.d(
                     "AuthViewModel",
-                    "Datos del usuario guardados en Firestore"
+                    "Usuario registrado con términos aceptados"
                 )
 
-                // Si el registro con correo es exitoso, ya tiene todos los datos y es un usuario "Existente"/Completo
                 _authState.value =
                     AuthState.SuccessExistingUser(userId)
 
@@ -107,9 +141,10 @@ class AuthViewModel : ViewModel() {
                             ?: "Error desconocido durante el registro"
                 }
 
-                Log.d(
+                Log.e(
                     "AuthViewModel",
-                    "Error durante el registro: $errorMessage"
+                    "Error durante el registro: $errorMessage",
+                    e
                 )
 
                 _authState.value =
@@ -118,107 +153,261 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    // =======================================================================
+    // =====================================================
     // 2. INICIO DE SESIÓN CON GOOGLE
-    // =======================================================================
+    // =====================================================
+
     fun signInWithGoogle(idToken: String) {
+
         _authState.value = AuthState.Loading
 
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        val credential =
+            GoogleAuthProvider.getCredential(idToken, null)
 
-        auth.signInWithCredential(credential)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val result = task.result
-                    val user = result?.user
+        viewModelScope.launch {
 
-                    // Aquí verificamos si es la primera vez que inicia sesión con Google
-                    val isNewUser = result?.additionalUserInfo?.isNewUser == true
+            try {
 
-                    if (user != null) {
-                        if (isNewUser) {
-                            // Es nuevo: Mandamos el estado para redirigir a DatosAdicionalesScreen
-                            _authState.value = AuthState.SuccessNewUser(user.uid, user.email)
-                        } else {
-                            // Ya existía: Redirigir directamente a la pantalla principal
-                            _authState.value = AuthState.SuccessExistingUser(user.uid)
-                        }
-                    }
-                } else {
+                val result =
+                    auth.signInWithCredential(
+                        credential
+                    ).await()
+
+                val user = result.user
+
+                if (user == null) {
+
                     _authState.value = AuthState.Error(
-                        task.exception?.localizedMessage ?: "Error desconocido al iniciar sesión"
+                        "No se pudo obtener la cuenta de Google"
                     )
+
+                    return@launch
                 }
+
+                // No basta con comprobar isNewUser.
+                //
+                // Una persona puede haber iniciado sesión
+                // con Google anteriormente, pero no haber
+                // completado sus datos ni aceptado
+                // los términos.
+                //
+                // Por eso comprobamos si tiene perfil
+                // en la colección users de Firestore.
+
+                val profile = firestore
+                    .collection("users")
+                    .document(user.uid)
+                    .get()
+                    .await()
+
+                if (profile.exists()) {
+
+                    // Tiene perfil guardado.
+                    // Se considera usuario existente.
+
+                    _authState.value =
+                        AuthState.SuccessExistingUser(
+                            user.uid
+                        )
+
+                } else {
+
+                    // No tiene perfil guardado.
+                    // Debe completar DatosAdicionalesScreen
+                    // y aceptar los términos.
+
+                    _authState.value =
+                        AuthState.SuccessNewUser(
+                            user.uid,
+                            user.email
+                        )
+                }
+
+            } catch (e: Exception) {
+
+                Log.e(
+                    "AuthViewModel",
+                    "Error durante el inicio de sesión con Google",
+                    e
+                )
+
+                _authState.value = AuthState.Error(
+                    e.localizedMessage
+                        ?: "Error desconocido al iniciar sesión"
+                )
             }
+        }
     }
 
-    // =======================================================================
-    // 3. GUARDAR DATOS ADICIONALES (Para usuarios nuevos de Google)
-    // =======================================================================
+    // =====================================================
+    // 3. GUARDAR DATOS ADICIONALES
+    //    PARA USUARIOS NUEVOS DE GOOGLE
+    // =====================================================
+
     fun saveAdditionalUserData(
         uid: String,
         email: String?,
         username: String,
         disability: String,
-        voiceType: String
+        voiceType: String,
+        acceptedTerms: Boolean
     ) {
+
+        // Bloquear el guardado si no aceptó
+        // los términos y condiciones.
+
+        if (!acceptedTerms) {
+
+            _authState.value = AuthState.Error(
+                "Debes aceptar los términos y condiciones."
+            )
+
+            return
+        }
+
         viewModelScope.launch {
+
             _authState.value = AuthState.Loading
 
             try {
-                // Reutilizamos tu modelo UserData
+
+                // Comprobar que el perfil corresponde
+                // al usuario autenticado.
+
+                if (auth.currentUser?.uid != uid) {
+
+                    _authState.value = AuthState.Error(
+                        "La sesión del usuario no es válida."
+                    )
+
+                    return@launch
+                }
+
+                // Registrar la aceptación en Firestore.
+
+                val now = Timestamp.now()
+
                 val userData = UserData(
                     userId = uid,
                     username = username,
                     email = email ?: "",
                     disability = disability,
                     voiceType = voiceType,
-                    createdAt = Timestamp.now()
+                    createdAt = now,
+                    termsVersion = TermsConfig.VERSION,
+                    termsAcceptedAt = now
                 )
 
-                firestore.collection("users").document(uid).set(userData).await()
+                firestore.collection("users")
+                    .document(uid)
+                    .set(userData)
+                    .await()
 
-                // Una vez guardado, el registro se completa y lo tratamos como usuario registrado
-                _authState.value = AuthState.SuccessExistingUser(uid)
+                Log.d(
+                    "AuthViewModel",
+                    "Perfil de Google guardado con términos aceptados"
+                )
+
+                // Registro completado correctamente.
+
+                _authState.value =
+                    AuthState.SuccessExistingUser(uid)
 
             } catch (e: Exception) {
+
+                Log.e(
+                    "AuthViewModel",
+                    "Error al guardar datos adicionales",
+                    e
+                )
+
                 _authState.value = AuthState.Error(
-                    e.localizedMessage ?: "Error al guardar los datos en Firestore"
+                    e.localizedMessage
+                        ?: "Error al guardar los datos en Firestore"
                 )
             }
         }
     }
 
-    // =======================================================================
+    // =====================================================
     // 4. INICIO DE SESIÓN CON CORREO Y CONTRASEÑA
-    // =======================================================================
-    fun signInWithEmail(email: String, password: String) {
+    // =====================================================
+
+    fun signInWithEmail(
+        email: String,
+        password: String
+    ) {
+
         viewModelScope.launch {
+
             _authState.value = AuthState.Loading
+
             try {
-                // Inicia sesión en Firebase Auth
-                val authResult = auth.signInWithEmailAndPassword(email, password).await()
+
+                val authResult =
+                    auth.signInWithEmailAndPassword(
+                        email,
+                        password
+                    ).await()
+
                 val user = authResult.user
 
                 if (user != null) {
-                    // Si inicia sesión exitosamente por correo, ya es un usuario existente
-                    _authState.value = AuthState.SuccessExistingUser(user.uid)
+
+                    _authState.value =
+                        AuthState.SuccessExistingUser(
+                            user.uid
+                        )
+
                 } else {
-                    _authState.value = AuthState.Error("Error al iniciar sesión")
+
+                    _authState.value = AuthState.Error(
+                        "Error al iniciar sesión"
+                    )
                 }
+
             } catch (e: Exception) {
-                // Manejo de errores comunes de inicio de sesión
+
                 val errorMessage = when {
-                    e.message?.contains("invalid-credential") == true -> "Credenciales incorrectas"
-                    e.message?.contains("user-not-found") == true -> "Usuario no registrado"
-                    e.message?.contains("wrong-password") == true -> "Contraseña incorrecta"
-                    e.message?.contains("network") == true -> "Error de conexión"
-                    else -> e.message ?: "Error desconocido al iniciar sesión"
+
+                    e.message?.contains(
+                        "invalid-credential",
+                        ignoreCase = true
+                    ) == true ->
+                        "Credenciales incorrectas"
+
+                    e.message?.contains(
+                        "user-not-found",
+                        ignoreCase = true
+                    ) == true ->
+                        "Usuario no registrado"
+
+                    e.message?.contains(
+                        "wrong-password",
+                        ignoreCase = true
+                    ) == true ->
+                        "Contraseña incorrecta"
+
+                    e.message?.contains(
+                        "network",
+                        ignoreCase = true
+                    ) == true ->
+                        "Error de conexión"
+
+                    else ->
+                        e.message
+                            ?: "Error desconocido al iniciar sesión"
                 }
-                _authState.value = AuthState.Error(errorMessage)
+
+                _authState.value =
+                    AuthState.Error(errorMessage)
             }
         }
     }
+
+    // =====================================================
+    // 5. RESTABLECER ESTADO
+    // =====================================================
 
     fun resetState() {
         _authState.value = AuthState.Idle

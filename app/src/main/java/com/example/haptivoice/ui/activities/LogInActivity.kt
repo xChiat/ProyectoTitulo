@@ -75,13 +75,15 @@ class LogInActivity : ComponentActivity() {
                         // Si por algún motivo este aweonao entra con Google desde el Login y es NUEVO,
                         // lo mando devuelta a llenar sus datos obligatorios >:(
                         DatosAdicionalesScreen(
-                            onSave = { username, disability, voiceType ->
+                            onSave = { username, disability, voiceType, acceptedTerms ->
+
                                 authViewModel.saveAdditionalUserData(
                                     uid = state.uid,
                                     email = state.email,
                                     username = username,
                                     disability = disability,
-                                    voiceType = voiceType
+                                    voiceType = voiceType,
+                                    acceptedTerms = acceptedTerms
                                 )
                             }
                         )

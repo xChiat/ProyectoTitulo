@@ -24,14 +24,12 @@ const DAILY_REQUESTS = 30;
 // nombres arbitrarios de voces a Google Cloud.
 const voices = Object.freeze({
     "es-US": {
-        FEMALE: "es-US-Neural2-A",
-        MALE: "es-US-Neural2-B",
-        NEUTRAL: "es-US-Neural2-A"
+        FEMALE: "es-US-News-F",
+        MALE: "es-US-Neural2-C",
     },
     "en-US": {
-        FEMALE: "en-US-Neural2-C",
+        FEMALE: "en-US-Chirp3-HD-Zephyr",
         MALE: "en-US-Neural2-D",
-        NEUTRAL: "en-US-Neural2-C"
     }
 });
 

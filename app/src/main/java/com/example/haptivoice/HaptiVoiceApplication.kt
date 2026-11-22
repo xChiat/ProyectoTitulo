@@ -3,18 +3,16 @@ package com.example.haptivoice
 
 import android.app.Application
 import android.util.Log
-import com.google.firebase.FirebaseApp
-import com.google.firebase.appcheck.FirebaseAppCheck
-import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+import com.example.haptivoice.utils.AppCheckInitializer
 
 /**
  * Configuración inicial de HaptiVoice.
  *
- * Inicializa Firebase App Check con Google Play Integrity
- * antes de utilizar los servicios de Firebase.
+ * Inicializa Firebase App Check antes de utilizar
+ * los servicios de Firebase.
  *
- * Protege las solicitudes dirigidas a las funciones
- * Premium mediante tokens de verificación.
+ * Debug: utiliza el proveedor de depuración.
+ * Release: utiliza Google Play Integrity.
  */
 class HaptiVoiceApplication : Application() {
 
@@ -22,20 +20,13 @@ class HaptiVoiceApplication : Application() {
         super.onCreate()
 
         try {
-            // Inicializar Firebase.
-            FirebaseApp.initializeApp(this)
-
-            // Configurar Firebase App Check.
-            val firebaseAppCheck = FirebaseAppCheck.getInstance()
-
-            // Utilizar Google Play Integrity.
-            firebaseAppCheck.installAppCheckProviderFactory(
-                PlayIntegrityAppCheckProviderFactory.getInstance()
+            AppCheckInitializer.initialize(
+                applicationContext
             )
 
             Log.d(
                 TAG,
-                "Firebase App Check inicializado con Play Integrity"
+                "Firebase App Check inicializado correctamente"
             )
 
         } catch (e: Exception) {

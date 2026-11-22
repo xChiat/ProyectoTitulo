@@ -68,6 +68,8 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
+import android.util.Log
+import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -131,6 +133,61 @@ class MainActivity : ComponentActivity() {
                 val authState by authViewModel.authState.collectAsState()
                 var hasOldSession by remember { mutableStateOf(initialSessionState) }
 
+
+                // ==============================================
+                // VOZ DEL PERFIL: FEMENINA O MASCULINA
+                // ==============================================
+                // Escucha los cambios de preferencias en Firestore
+                // y los aplica a Android TTS y Google Cloud Neural2.
+
+                DisposableEffect(hasOldSession, ttsManager) {
+
+                    val uid = auth.currentUser?.uid
+
+                    val voiceListener =
+                        if (hasOldSession && uid != null) {
+
+                            FirebaseFirestore.getInstance()
+                                .collection("users")
+                                .document(uid)
+                                .addSnapshotListener { document, error ->
+
+                                    if (error != null) {
+
+                                        Log.e(
+                                            "HaptiVoiceTTS",
+                                            "Error al consultar la voz",
+                                            error
+                                        )
+
+                                    } else {
+
+                                        val voiceType =
+                                            document?.getString("voiceType")
+
+                                        if (!voiceType.isNullOrBlank()) {
+
+                                            ttsManager.setVoiceFromProfile(
+                                                voiceType
+                                            )
+
+                                            Log.d(
+                                                "HaptiVoiceTTS",
+                                                "Preferencia de voz: $voiceType"
+                                            )
+                                        }
+                                    }
+                                }
+
+                        } else {
+                            null
+                        }
+
+                    onDispose {
+                        voiceListener?.remove()
+                    }
+                }
+
                 val googleSignInLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.StartActivityForResult()
                 ) { result ->
@@ -165,13 +222,15 @@ class MainActivity : ComponentActivity() {
                 if (authState is AuthState.SuccessNewUser) {
                     val state = authState as AuthState.SuccessNewUser
                     DatosAdicionalesScreen(
-                        onSave = { username, disability, voiceType ->
+                        onSave = { username, disability, voiceType, acceptedTerms ->
+
                             authViewModel.saveAdditionalUserData(
                                 uid = state.uid,
                                 email = state.email,
                                 username = username,
                                 disability = disability,
-                                voiceType = voiceType
+                                voiceType = voiceType,
+                                acceptedTerms = acceptedTerms
                             )
                         }
                     )

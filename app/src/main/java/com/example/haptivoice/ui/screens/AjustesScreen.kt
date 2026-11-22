@@ -63,6 +63,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.haptivoice.viewmodel.ProfileUiState
 import com.example.haptivoice.viewmodel.ProfileViewModel
 import com.example.haptivoice.utils.SubscriptionManager
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.example.haptivoice.utils.TermsConfig
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,6 +95,11 @@ fun AjustesScreen(
 
     //confirmación antes de eliminar la cuenta
     var showDeleteDialog by remember { mutableStateOf(false) }
+
+    // NUEVO: controlar el diálogo de términos de servicio
+    var showTermsDialog by rememberSaveable {
+        mutableStateOf(false)
+    }
 
     Column(
         modifier = modifier
@@ -139,14 +147,27 @@ fun AjustesScreen(
 
                 val voiceOptions = listOf(
                     "Femenina",
-                    "Masculino",
-                    "Neutral"
+                    "Masculino"
                 )
+                val currentVoiceLabel =
+                    if (
+                        userData.voiceType.equals(
+                            "Masculino",
+                            ignoreCase = true
+                        ) ||
+                        userData.voiceType.equals(
+                            "Masculina",
+                            ignoreCase = true
+                        )
+                    ) {
+                        "Masculino"
+                    } else {
+                        "Femenina"
+                    }
 
                 var editedVoiceTypeIndex by remember(userData) {
                     mutableIntStateOf(
-                        voiceOptions.indexOf(userData.voiceType)
-                            .takeIf { it >= 0 } ?: 0
+                        voiceOptions.indexOf(currentVoiceLabel)
                     )
                 }
 
@@ -179,7 +200,7 @@ fun AjustesScreen(
                     SettingsItem(
                         icon = Icons.Default.RecordVoiceOver,
                         title = "Preferencia de voz",
-                        subtitle = userData.voiceType,
+                        subtitle = currentVoiceLabel,
                         trailingContent = {
                             IconButton(
                                 onClick = {
@@ -285,9 +306,7 @@ fun AjustesScreen(
                                     userData.username
 
                                 editedVoiceTypeIndex =
-                                    voiceOptions
-                                        .indexOf(userData.voiceType)
-                                        .takeIf { it >= 0 } ?: 0
+                                    voiceOptions.indexOf(currentVoiceLabel)
                             },
                             modifier = Modifier.padding(end = 8.dp)
                         ) {
@@ -446,15 +465,61 @@ fun AjustesScreen(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+
         // ==========================================
         // SECCIÓN: INFORMACIÓN
         // ==========================================
+
         SectionTitle(title = "Información")
 
         SettingsItem(
             icon = Icons.Default.Description,
-            title = "Términos de servicio"
+            title = "Términos de servicio",
+            subtitle = "Consultar términos y condiciones de HaptiVoice",
+            onClick = {
+                showTermsDialog = true
+            }
         )
+
+        // ==========================================
+        // NUEVO: MOSTRAR TÉRMINOS Y CONDICIONES
+        // ==========================================
+
+        if (showTermsDialog) {
+
+            AlertDialog(
+                onDismissRequest = {
+                    showTermsDialog = false
+                },
+
+                title = {
+                    Text(
+                        text = "Términos y condiciones - " +
+                                TermsConfig.VERSION
+                    )
+                },
+
+                text = {
+                    Text(
+                        text = TERMS_TEXT,
+                        modifier = Modifier
+                            .heightIn(max = 400.dp)
+                            .verticalScroll(rememberScrollState())
+                            .padding(vertical = 4.dp)
+                    )
+                },
+
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showTermsDialog = false
+                        }
+                    ) {
+                        Text("Cerrar")
+                    }
+                }
+            )
+        }
 
         Spacer(modifier = Modifier.height(32.dp))
 

@@ -29,7 +29,7 @@ class TextToSpeechManager(
     private var currentLanguage: Locale = DEFAULT_LANGUAGE
 
     private var selectedGender: VoiceGender =
-        VoiceGender.NEUTRAL
+        VoiceGender.FEMALE
 
     // =====================================================
     // MOTOR PREMIUM DE GOOGLE CLOUD
@@ -81,6 +81,13 @@ class TextToSpeechManager(
 
         if (isReady) {
             applySelectedVoice()
+
+            Log.d(
+                "HaptiVoiceTTS",
+                "Voces disponibles: " +
+                        getVoicesForCurrentLanguage()
+                            .joinToString { it.name }
+            )
         }
 
         onInitResult?.invoke(isReady)
@@ -96,24 +103,51 @@ class TextToSpeechManager(
      * Esta comprobación local solo habilita la interfaz.
      * La Cloud Function valida la compra con Google Play.
      */
+
     fun setPremiumAccess(
         active: Boolean,
         purchaseToken: String?
     ) {
+
+        // Premium solo está disponible cuando Google Play
+        // confirma acceso y existe un token de compra.
         val available =
             active && !purchaseToken.isNullOrBlank()
+
+        // Selección automática según la suscripción.
+        val newTier = if (available) {
+            VoiceQualityTier.HIGH
+        } else {
+            VoiceQualityTier.NORMAL
+        }
+
+        // Detener el audio anterior si cambia el plan.
+        if (selectedTier != newTier) {
+            stop()
+        }
 
         premiumAccess = available
 
         premiumPurchaseToken =
             if (available) purchaseToken else null
 
-        if (!available) {
-            selectedTier = VoiceQualityTier.NORMAL
-            cloudPlayer.stop()
-        }
-    }
+        selectedTier = newTier
 
+        // Al perder Premium, restaurar voz básica.
+        if (!available && isReady) {
+            applySelectedVoice()
+        }
+
+        Log.d(
+            TAG,
+            "Calidad automática: " +
+                    if (available) {
+                        "PREMIUM - Google Cloud"
+                    } else {
+                        "BÁSICA - Android TTS"
+                    }
+        )
+    }
     fun hasPremiumAccess(): Boolean {
         return premiumAccess &&
                 !premiumPurchaseToken.isNullOrBlank()
@@ -123,31 +157,36 @@ class TextToSpeechManager(
     // SELECCIÓN DE CALIDAD DE VOZ
     // =====================================================
 
+
     fun setVoiceQualityTier(
         tier: VoiceQualityTier
     ): Boolean {
 
-        if (
-            tier == VoiceQualityTier.HIGH &&
-            !hasPremiumAccess()
-        ) {
-            Log.w(
+        // La calidad depende exclusivamente del acceso
+        // Premium recibido desde SubscriptionManager.
+        val automaticTier = if (hasPremiumAccess()) {
+            VoiceQualityTier.HIGH
+        } else {
+            VoiceQualityTier.NORMAL
+        }
+
+        // Evitar cambios manuales de calidad.
+        if (tier != automaticTier) {
+            Log.d(
                 TAG,
-                "No hay suscripción Premium disponible"
+                "Cambio manual ignorado. " +
+                        "La calidad depende de la suscripción."
             )
             return false
         }
 
-        if (selectedTier != tier) {
+        if (selectedTier != automaticTier) {
             stop()
-        }
+            selectedTier = automaticTier
 
-        selectedTier = tier
-
-        // Las voces locales continúan disponibles
-        // como alternativa de reproducción.
-        if (tier == VoiceQualityTier.NORMAL) {
-            applySelectedVoice()
+            if (automaticTier == VoiceQualityTier.NORMAL) {
+                applySelectedVoice()
+            }
         }
 
         return true
@@ -279,7 +318,6 @@ class TextToSpeechManager(
             val cloudGender = when (selectedGender) {
                 VoiceGender.MALE -> "MALE"
                 VoiceGender.FEMALE -> "FEMALE"
-                VoiceGender.NEUTRAL -> "NEUTRAL"
             }
 
             cloudPlayer.speak(
@@ -552,18 +590,19 @@ class TextToSpeechManager(
     ): Boolean {
 
         selectedGender = when (
-            voiceType.lowercase()
+            voiceType.trim().lowercase(Locale.ROOT)
         ) {
-
-            "femenina", "femenino" ->
-                VoiceGender.FEMALE
-
-            "masculina", "masculino" ->
+            "masculino", "masculina" ->
                 VoiceGender.MALE
 
             else ->
-                VoiceGender.NEUTRAL
+                VoiceGender.FEMALE
         }
+
+        Log.d(
+            TAG,
+            "Género de voz seleccionado: $selectedGender"
+        )
 
         return applySelectedVoice()
     }
@@ -594,6 +633,7 @@ class TextToSpeechManager(
         return applied
     }
 
+
     private fun resolveNormalVoiceName(
         language: Locale,
         gender: VoiceGender
@@ -604,25 +644,21 @@ class TextToSpeechManager(
             ignoreCase = true
         )
 
-        return when {
+        return if (isSpanish) {
 
-            isSpanish && gender == VoiceGender.FEMALE ->
-                ES_FEMALE_NORMAL
-
-            isSpanish && gender == VoiceGender.MALE ->
+            if (gender == VoiceGender.MALE) {
                 ES_MALE_NORMAL
+            } else {
+                ES_FEMALE_NORMAL
+            }
 
-            isSpanish ->
-                ES_NEUTRAL_NORMAL
+        } else {
 
-            gender == VoiceGender.FEMALE ->
-                EN_FEMALE_NORMAL
-
-            gender == VoiceGender.MALE ->
+            if (gender == VoiceGender.MALE) {
                 EN_MALE_NORMAL
-
-            else ->
-                EN_NEUTRAL_NORMAL
+            } else {
+                EN_FEMALE_NORMAL
+            }
         }
     }
 
@@ -658,8 +694,7 @@ class TextToSpeechManager(
 
     enum class VoiceGender {
         FEMALE,
-        MALE,
-        NEUTRAL
+        MALE
     }
 
     enum class VoiceQualityTier {
@@ -679,12 +714,10 @@ class TextToSpeechManager(
             SupportedLanguage.SPANISH.locale
 
         // Voces normales de Android.
-        const val ES_FEMALE_NORMAL = "es-ES-language"
-        const val ES_MALE_NORMAL = "es-us-x-esf-local"
-        const val ES_NEUTRAL_NORMAL = "es-es-x-eea-local"
+        const val ES_FEMALE_NORMAL = "es-es-x-eea-local"
+        const val ES_MALE_NORMAL = "es-es-x-eed-local"
 
         const val EN_FEMALE_NORMAL = "en-AU-language"
         const val EN_MALE_NORMAL = "en-us-x-iom-local"
-        const val EN_NEUTRAL_NORMAL = "en-us-x-sfg-local"
     }
 }

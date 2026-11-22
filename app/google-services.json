@@ -22,11 +22,27 @@
           }
         },
         {
+          "client_id": "104696983752-ae56edv8ctcit8slsa0h5bul38nrcnm5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "cl.h1p0c.haptivoice",
+            "certificate_hash": "2bab3b18e6a44cc58b675fbb854d38f1daa0fae0"
+          }
+        },
+        {
           "client_id": "104696983752-ds4v64hhu4miou3488e3pu923cn0fhu2.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "cl.h1p0c.haptivoice",
             "certificate_hash": "a31986de00b54f935f6413c48c1edb55085048ff"
+          }
+        },
+        {
+          "client_id": "104696983752-gga3mm5pq7gpf1cios273l7u5ssf5skm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "cl.h1p0c.haptivoice",
+            "certificate_hash": "bdc3715be889f7bee510ad85d5d83c5330bea82e"
           }
         },
         {

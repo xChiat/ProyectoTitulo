@@ -8,6 +8,9 @@ data class UserData(
     val email: String = "",
     val disability: String = "",
     val voiceType: String = "",
-    val createdAt: Timestamp? = null
+    val createdAt: Timestamp? = null,
+    // campos de aceptación
+    val termsVersion: String = "",
+    val termsAcceptedAt: Timestamp? = null
 )
 
